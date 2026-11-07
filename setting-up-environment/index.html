@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Setting up the environment | ATLAS on Unity</title>
+  <meta name="description" content="Allocate Unity resources, start an EL9 container, and set up ATLAS software.">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script defer src="../assets/search-index.js"></script>
+  <script defer src="../assets/site.js"></script>
+</head>
+<body data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <a class="brand" href="../index.html"><span class="brand-mark" aria-hidden="true">A / U</span><span>ATLAS Analysis on Unity<small>UMass Amherst · Analysis facility guide</small></span></a>
+  <nav class="external" aria-label="External resources"><a href="https://docs.unity.rc.umass.edu/documentation/">Unity docs ↗</a><a href="https://atlas-software.docs.cern.ch/">ATLAS docs ↗</a><a href="https://github.com/rafaellopesdesa/unity_atlas">GitHub ↗</a></nav>
+  <button class="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>Menu</button>
+</header>
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="search" hidden><label for="search-input">Search this guide</label><input id="search-input" type="search" placeholder="Search topics or commands…" autocomplete="off"><p id="search-status" aria-live="polite"></p><ul id="search-results" hidden></ul></div>
+    <p class="nav-label">Documentation</p>
+    <nav class="chapters" aria-label="Chapters"><a href="../index.html">Overview</a><a aria-current="page" href="index.html">Setting up the environment</a></nav>
+    <div class="sidebar-note"><span class="status-dot"></span> Growing guide<p>Environment setup is the first chapter. More analysis workflows will follow.</p></div>
+    <a class="sidebar-source" href="https://github.com/rafaellopesdesa/unity_atlas/issues">Suggest an improvement ↗</a>
+  </aside>
+  <main id="main" tabindex="-1">
+    <div class="breadcrumb">Documentation <span>/</span> Setting up the environment</div>
+    <div class="eyebrow">ATLAS · UMASS UNITY</div>
+    <h1>Setting up the environment</h1>
+    <article><p>Use a Slurm allocation for your work, then start an EL9 container on the allocated compute node. Inside it, ATLAS software is available through CVMFS without a local installation.</p>
+<div class="callout">
+<p><strong>Before you begin:</strong> you need a Unity account, access to a group work directory, and a Bash shell. CVMFS must be accessible on the <strong>compute node</strong>, not just the login node. This first version has not yet been tested end to end on Unity.</p>
+</div>
+<h2 id="connect">1. Connect to Unity</h2>
+<p>From your own computer, connect using your Unity username:</p>
+<pre class="bash"><code># Your computer — replace YOUR_UNITY_USERNAME.
+ssh YOUR_UNITY_USERNAME@login.unityhpc.org</code></pre>
+<p>Follow Unity's <a href="https://docs.unity.rc.umass.edu/documentation/connecting/ssh/">SSH guide</a> for account and SSH-key setup. Use the login node to prepare and submit work; run builds, event processing, and training on allocated compute nodes.</p>
+<h2 id="allocate">2. Request compute resources</h2>
+<p>Choose <strong>one</strong> of the following commands on the login node. Adjust the resource request to your workload.</p>
+<h3 id="cpu-session">CPU session</h3>
+<pre class="bash"><code># Unity login node
+salloc --partition=cpu --nodes=1 --ntasks=1 \
+       --cpus-per-task=4 --mem=16G --time=02:00:00</code></pre>
+<h3 id="gpu-session">GPU session</h3>
+<pre class="bash"><code># Unity login node — alternative to the CPU request
+salloc --partition=gpu --nodes=1 --ntasks=1 --gpus=1 \
+       --cpus-per-task=4 --mem=16G --time=02:00:00</code></pre>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Option</th>
+<th>Meaning in these examples</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>--nodes=1 --ntasks=1</code></td>
+<td>One node and one task.</td>
+</tr>
+<tr class="even">
+<td><code>--cpus-per-task=4</code></td>
+<td>Four CPU cores for that task. Configure your application's threads accordingly.</td>
+</tr>
+<tr class="odd">
+<td><code>--mem=16G</code></td>
+<td>16 GB of host memory for the node allocation; this is not GPU memory.</td>
+</tr>
+<tr class="even">
+<td><code>--time=02:00:00</code></td>
+<td>A two-hour wall-time limit.</td>
+</tr>
+<tr class="odd">
+<td><code>--gpus=1</code></td>
+<td>One GPU, only in the GPU example.</td>
+</tr>
+</tbody>
+</table>
+<p>Unity's documented <code>salloc</code> workflow opens a shell on the compute node once resources are available. Confirm your location:</p>
+<pre class="bash"><code># After the allocation is granted
+hostname -f
+printf &#39;Job: %s\nNodes: %s\n&#39; &quot;$SLURM_JOB_ID&quot; &quot;$SLURM_JOB_NODELIST&quot;
+uname -m</code></pre>
+<p>The hostname should be a compute node in your allocation. If you are still on a login node with an active allocation, use <code>srun --pty bash -l</code> to start a shell on the allocated node. Do not run a second <code>salloc</code> inside the first one.</p>
+<p>This guide targets <strong>x86_64</strong> nodes. Containers do not translate CPU architectures; ARM and POWER partitions need compatible software and images. <code>gpu-preempt</code> is an alternative when interruption is acceptable. Consult the current <a href="https://docs.unity.rc.umass.edu/documentation/cluster_specs/partitions/">partition list</a> and <a href="https://docs.unity.rc.umass.edu/documentation/tools/gpus/">GPU guide</a> before choosing constraints or preemptible resources.</p>
+<h2 id="prepare-host">3. Prepare the host environment</h2>
+<p>Run the following in the <strong>Ubuntu compute-node shell</strong>, before entering a container:</p>
+<pre class="bash"><code>module load apptainer/latest
+apptainer --version
+
+export ATLAS_LOCAL_ROOT_BASE=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase
+alias setupATLAS=&#39;source ${ATLAS_LOCAL_ROOT_BASE}/user/atlasLocalSetup.sh&#39;
+
+ls -l &quot;$ATLAS_LOCAL_ROOT_BASE/user/atlasLocalSetup.sh&quot;</code></pre>
+<p>The last command must find the setup script. Stop here if it fails: an empty <code>/cvmfs</code> directory alone does not establish that the ATLAS repository is available. Report the compute-node hostname and the missing path to Unity support. The first access to a CVMFS path may take longer while content is fetched.</p>
+<p>Start from a clean host shell. Deactivate any Conda or Python virtual environment and avoid loading Ubuntu ROOT, Python, or compiler modules for use inside the EL9 environment. Load the Apptainer runtime on the host; select analysis tools inside the container.</p>
+<h3 id="choose-a-work-directory">Choose a work directory</h3>
+<p>Replace <code>pi_YOUR_PI</code> with your actual Unity group directory. Do not run the placeholder unchanged.</p>
+<pre class="bash"><code># Ubuntu compute node — edit the group directory first
+export ATLAS_WORKDIR=&quot;/work/pi_YOUR_PI/$USER/atlas&quot;
+mkdir -p &quot;$ATLAS_WORKDIR&quot;
+cd &quot;$ATLAS_WORKDIR&quot;
+pwd -P</code></pre>
+<p>Use <code>/work</code> or a workspace allocated through Unity's <a href="https://docs.unity.rc.umass.edu/documentation/managing-files/hpc-workspace/">scratch service</a> for active job I/O. Keep shell configuration in your home directory. Consult the <a href="https://docs.unity.rc.umass.edu/documentation/cluster_specs/storage/">storage guide</a> for quotas, retention, and moving data from longer-term storage.</p>
+<h2 id="container">4. Enter the EL9 container</h2>
+<p>For a CPU session, run:</p>
+<pre class="bash"><code># Ubuntu compute node, in your analysis directory
+setupATLAS -c el9 -m /work</code></pre>
+<p><code>-c el9</code> selects the ATLAS EL9 environment. <code>-m /work</code> makes Unity's work filesystem visible inside it. File permissions still apply. If your work is on scratch instead, use <code>-m /scratch</code>; for other storage, bind the relevant host path. Check <code>setupATLAS -c -h</code> for additional mount options supported by the installed launcher.</p>
+<p>The launcher initializes the ATLAS user interface in the container. Check it before selecting a release:</p>
+<pre class="bash"><code># Inside the EL9 container
+cat /etc/os-release
+uname -m
+pwd
+type lsetup
+type asetup
+ls /cvmfs/atlas.cern.ch/repo
+ls /work</code></pre>
+<p>Expect an EL9 distribution and <code>x86_64</code>. A container shares the host kernel, so <code>uname -r</code> is <strong>not</strong> a test of its Linux distribution. The launcher may map the working directory to <code>/srv</code> and use a different home path. Check <code>pwd</code>; your <code>/work/...</code> directory should also be accessible through the explicit mount. Host variables such as <code>ATLAS_WORKDIR</code> need not be preserved.</p>
+<p>If <code>lsetup</code> is unavailable despite a successful container launch, initialize the interface explicitly <strong>inside</strong> that container:</p>
+<pre class="bash"><code>export ATLAS_LOCAL_ROOT_BASE=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase
+source &quot;$ATLAS_LOCAL_ROOT_BASE/user/atlasLocalSetup.sh&quot;</code></pre>
+<div class="callout">
+<p><strong>Two separate choices.</strong> The container selects the operating-system environment. <code>asetup</code> selects an ATLAS software release. Entering EL9 does not by itself load AnalysisBase, AthAnalysis, or Athena.</p>
+</div>
+<h2 id="software">5. Load analysis software</h2>
+<p>Choose the environment needed by your analysis. Use a fresh container session when switching between unrelated software stacks.</p>
+<h3 id="a-standalone-root-check">A standalone ROOT check</h3>
+<p>In an EL9 session with no analysis release loaded:</p>
+<pre class="bash"><code>lsetup root
+root-config --version
+python -c &#39;import ROOT; print(ROOT.gROOT.GetVersion())&#39;</code></pre>
+<p>This checks a basic ROOT/PyROOT environment. For reproducible work, select an explicit tool version using the choices shown by <code>lsetup "root --help"</code>, and record it with your analysis.</p>
+<h3 id="analysisbase-athanalysis-or-athena">AnalysisBase, AthAnalysis, or Athena</h3>
+<p>For an analysis release, begin in a <strong>fresh EL9 session</strong> and select the exact project and version required by your analysis, following the ATLAS <a href="https://atlas-software.docs.cern.ch/analysis/analysis_tutorial/AnalysisSWTutorial/release_setup/">release setup guide</a>. For example, this prompts for a version instead of silently choosing a moving default:</p>
+<pre class="bash"><code># Inside a fresh EL9 container, in your analysis directory
+read -r -p &#39;AnalysisBase release required by your analysis: &#39; ATLAS_RELEASE
+if [[ -n &quot;$ATLAS_RELEASE&quot; ]]; then
+    asetup &quot;AnalysisBase,${ATLAS_RELEASE}&quot;
+fi</code></pre>
+<p>Use <code>AthAnalysis</code> or <code>Athena</code> in place of <code>AnalysisBase</code> when that is what your workflow requires. Check the setup output for a successful release selection and an EL9-compatible platform. Do not guess a release number from this guide; the analysis determines the supported release.</p>
+<p>After a successful setup:</p>
+<pre class="bash"><code>printf &#39;Project: %s\nVersion: %s\nPlatform: %s\n&#39; \
+       &quot;$AtlasProject&quot; &quot;$AtlasVersion&quot; &quot;$BINARY_TAG&quot;
+command -v python
+root-config --version
+python -c &#39;import ROOT; print(ROOT.gROOT.GetVersion())&#39;</code></pre>
+<p>Use the ROOT and Python supplied by the release. Keep standalone <code>lsetup root</code> and release setup in separate sessions. Record the project, version, platform, and container information with your code; record the resolved image from the launcher output if you need to reproduce the precise container as well.</p>
+<h2 id="gpu">6. Enable GPU access</h2>
+<p>For an <strong>NVIDIA GPU allocation</strong>, use this launch sequence in place of the CPU container command. First check the host:</p>
+<pre class="bash"><code># Ubuntu GPU compute node, after salloc and host preparation
+nvidia-smi
+printf &#39;CUDA_VISIBLE_DEVICES=%s\n&#39; &quot;${CUDA_VISIBLE_DEVICES:-&lt;unset&gt;}&quot;</code></pre>
+<p>Apptainer's <code>APPTAINER_NV</code> enables NVIDIA device and driver-library passthrough, corresponding to <code>--nv</code>. Pass Slurm's device selection into the clean container environment as well:</p>
+<pre class="bash"><code># Ubuntu GPU compute node
+export APPTAINER_NV=true
+if [[ -n ${CUDA_VISIBLE_DEVICES:-} ]]; then
+    export APPTAINERENV_CUDA_VISIBLE_DEVICES=&quot;$CUDA_VISIBLE_DEVICES&quot;
+fi
+setupATLAS -c el9 -m /work</code></pre>
+<p>Then check <strong>inside</strong> the container:</p>
+<pre class="bash"><code>nvidia-smi
+printf &#39;CUDA_VISIBLE_DEVICES=%s\n&#39; &quot;${CUDA_VISIBLE_DEVICES:-&lt;unset&gt;}&quot;</code></pre>
+<p>Check the launcher's output to confirm it uses Apptainer. If it selects a different runtime or the GPU check fails, inspect <code>setupATLAS -c -h</code> and the <a href="https://apptainer.org/docs/user/latest/gpu.html">Apptainer GPU documentation</a> before proceeding. This combined ATLAS/Unity GPU path still needs validation on Unity.</p>
+<p>GPU visibility does not install a CUDA-enabled analysis framework, or make ordinary ATLAS code use the GPU. A compatible GPU software stack is a separate choice. Do not override Slurm's device selection or set it to <code>all</code>; <code>nvidia-smi</code> may enumerate more devices than your application is assigned. Keep these GPU exports out of your general <code>.bashrc</code> and remove them in the host shell after leaving the container:</p>
+<pre class="bash"><code># Back in the Ubuntu compute-node shell after exiting the container
+unset APPTAINER_NV APPTAINERENV_CUDA_VISIBLE_DEVICES</code></pre>
+<h2 id="bashrc">7. Add optional shell shortcuts</h2>
+<p>Add the following to <strong>your existing</strong> <code>~/.bashrc</code> on Unity. These lines define commands; they do not allocate resources or start software at login. The same snippet is available as <a href="../examples/atlas-bashrc.sh">atlas-bashrc.sh</a>.</p>
+<pre class="bash"><code>export ATLAS_LOCAL_ROOT_BASE=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase
+
+# Shortcuts for interactive Bash sessions only.
+if [[ $- == *i* ]]; then
+    alias setupATLAS=&#39;source ${ATLAS_LOCAL_ROOT_BASE}/user/atlasLocalSetup.sh&#39;
+    alias unity_cpu=&#39;salloc --partition=cpu --nodes=1 --ntasks=1 --cpus-per-task=4 --mem=16G --time=02:00:00&#39;
+    alias unity_gpu=&#39;salloc --partition=gpu --nodes=1 --ntasks=1 --gpus=1 --cpus-per-task=4 --mem=16G --time=02:00:00&#39;
+fi</code></pre>
+<p>Reload it in the <strong>host shell</strong> with <code>source ~/.bashrc</code>. You can then use <code>unity_cpu</code> or <code>unity_gpu</code> on the login node, followed by the host preparation and container commands on the allocated node.</p>
+<p>You may also add your edited <code>ATLAS_WORKDIR</code> export. Keep <code>module load</code>, <code>setupATLAS -c el9</code>, <code>asetup</code>, and <code>lsetup</code> as explicit commands rather than executing them automatically from <code>.bashrc</code>. This avoids unexpected containers or incompatible software environments when starting new shells. In scripts, source <code>atlasLocalSetup.sh</code> explicitly; non-interactive Bash does not normally expand aliases.</p>
+<h2 id="sessions">8. End or reconnect to a session</h2>
+<p>Run <code>exit</code> inside the container to return to the Ubuntu compute-node shell. Run <code>exit</code> again to leave the interactive allocation and release its resources. A new allocation requires a new container and software setup; files in your work directory remain.</p>
+<p>For a session that survives an SSH disconnect, start <code>tmux new -s atlas</code> <strong>on the login node before <code>salloc</code></strong>. Detach with <strong>Ctrl+B</strong>, then <strong>D</strong>. Reconnect to the same login node and use <code>tmux attach -t atlas</code>. Record that login hostname before starting. <code>tmux</code> does not extend the Slurm wall-time limit or prevent preemption. See Unity's <a href="https://docs.unity.rc.umass.edu/documentation/jobs/">interactive-job guidance</a>.</p>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Symptom</th>
+<th>What to check</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>setupATLAS: command not found</code></td>
+<td>Define the export and alias in the current Bash shell, or source the setup script explicitly.</td>
+</tr>
+<tr class="even">
+<td>Missing <code>atlasLocalSetup.sh</code></td>
+<td>Test its full CVMFS path on the allocated compute node; ask Unity support if unavailable.</td>
+</tr>
+<tr class="odd">
+<td><code>apptainer: command not found</code></td>
+<td>Load <code>apptainer/latest</code> on the host. Use <code>module avail apptainer</code> if the module name changes.</td>
+</tr>
+<tr class="even">
+<td>Container fails with namespace or mount errors</td>
+<td>Save the launcher output and hostname for support; node/runtime configuration may need adjustment.</td>
+</tr>
+<tr class="odd">
+<td>Work files disappear inside the container</td>
+<td>Add the correct host path with <code>-m</code>, including a symlink's real target; verify with <code>pwd -P</code> before launch.</td>
+</tr>
+<tr class="even">
+<td>Container still reports Ubuntu</td>
+<td>Check <code>/etc/os-release</code>; the container may have failed to start, leaving you in the host shell.</td>
+</tr>
+<tr class="odd">
+<td>ROOT/Python errors after setup</td>
+<td>Try a fresh container, choose one software stack, and check the release's platform.</td>
+</tr>
+<tr class="even">
+<td>GPU works on host but not in container</td>
+<td>Confirm an NVIDIA allocation, Apptainer passthrough, and preservation of Slurm's device selection.</td>
+</tr>
+<tr class="odd">
+<td>Allocation is pending</td>
+<td>Inspect <code>squeue -u "$USER"</code> on the host; reduce an unnecessarily large request or consult current partition availability.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://atlas-software.docs.cern.ch/">ATLAS Software Documentation</a>: <a href="https://atlas-software.docs.cern.ch/athena/developers/tutorial/prerequisites/">environment prerequisites</a> and <a href="https://atlas-software.docs.cern.ch/analysis/analysis_tutorial/basicSetup/setup_ui/">user-interface setup</a>.</li>
+<li><a href="https://docs.unity.rc.umass.edu/documentation/">Unity documentation</a>: <a href="https://docs.unity.rc.umass.edu/documentation/jobs/salloc/">interactive CLI jobs</a>, <a href="https://docs.unity.rc.umass.edu/documentation/help/faq/">container support</a>, <a href="https://docs.unity.rc.umass.edu/documentation/cluster_specs/partitions/">partitions</a>, and <a href="https://docs.unity.rc.umass.edu/documentation/cluster_specs/storage/">storage</a>.</li>
+<li><a href="https://usatlas.github.io/af-docs/containers/apptainer/usage/">US ATLAS Analysis Facilities: Apptainer usage</a>.</li>
+<li><a href="https://apptainer.org/docs/user/latest/gpu.html">Apptainer GPU support</a> and <a href="https://apptainer.org/docs/user/latest/appendix.html">environment-variable reference</a>.</li>
+</ul>
+<p>Documentation reviewed: <strong>7 November 2026</strong>. Unity runtime validation: <strong>pending</strong>.</p>
+</article>
+    <footer><span>ATLAS Analysis on Unity</span><a href="https://github.com/rafaellopesdesa/unity_atlas/blob/main/docs/setting-up-environment.md">View page source ↗</a></footer>
+  </main>
+  <aside class="toc" aria-label="On this page"><p class="nav-label">On this page</p><nav><a href="#connect">1. Connect to Unity</a><a href="#allocate">2. Request compute resources</a><a href="#prepare-host">3. Prepare the host environment</a><a href="#container">4. Enter the EL9 container</a><a href="#software">5. Load analysis software</a><a href="#gpu">6. Enable GPU access</a><a href="#bashrc">7. Add optional shell shortcuts</a><a href="#sessions">8. End or reconnect to a session</a><a href="#troubleshooting">Troubleshooting</a><a href="#references">References</a></nav><a class="back-top" href="#main">Back to top ↑</a></aside>
+</div>
+</body>
+</html>

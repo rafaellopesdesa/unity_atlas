@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ATLAS Analysis on Unity | ATLAS on Unity</title>
+  <meta name="description" content="A practical guide to ATLAS analysis on UMass Unity.">
+  <link rel="stylesheet" href="./assets/style.css">
+  <script defer src="./assets/search-index.js"></script>
+  <script defer src="./assets/site.js"></script>
+</head>
+<body data-root="./">
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <a class="brand" href="./index.html"><span class="brand-mark" aria-hidden="true">A / U</span><span>ATLAS Analysis on Unity<small>UMass Amherst · Analysis facility guide</small></span></a>
+  <nav class="external" aria-label="External resources"><a href="https://docs.unity.rc.umass.edu/documentation/">Unity docs ↗</a><a href="https://atlas-software.docs.cern.ch/">ATLAS docs ↗</a><a href="https://github.com/rafaellopesdesa/unity_atlas">GitHub ↗</a></nav>
+  <button class="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>Menu</button>
+</header>
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="search" hidden><label for="search-input">Search this guide</label><input id="search-input" type="search" placeholder="Search topics or commands…" autocomplete="off"><p id="search-status" aria-live="polite"></p><ul id="search-results" hidden></ul></div>
+    <p class="nav-label">Documentation</p>
+    <nav class="chapters" aria-label="Chapters"><a aria-current="page" href="index.html">Overview</a><a href="setting-up-environment/index.html">Setting up the environment</a></nav>
+    <div class="sidebar-note"><span class="status-dot"></span> Growing guide<p>Environment setup is the first chapter. More analysis workflows will follow.</p></div>
+    <a class="sidebar-source" href="https://github.com/rafaellopesdesa/unity_atlas/issues">Suggest an improvement ↗</a>
+  </aside>
+  <main id="main" tabindex="-1">
+    <div class="breadcrumb">Documentation <span>/</span> Overview</div>
+    <div class="eyebrow">ATLAS · UMASS UNITY</div>
+    <h1>ATLAS Analysis on Unity</h1>
+    <article><p>UMass Unity provides the compute resources. CVMFS supplies the ATLAS software. An Enterprise Linux 9 container brings them together on Unity's Ubuntu hosts.</p>
+<p>This guide documents how to use Unity as an analysis facility for ATLAS, from an interactive shell to a reproducible analysis environment.</p>
+<section id="start-here" class="start-panel">
+<h2>Start here</h2>
+<p><strong><a href="setting-up-environment/">Setting up the environment →</a></strong></p>
+<p>Request CPU or GPU resources, enter an EL9 container, and load the software needed for your analysis. Includes optional shell shortcuts and checks for common setup problems.</p>
+</section>
+<h2 id="how-the-environment-fits-together">How the environment fits together</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Component</th>
+<th>Its role</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Unity login node</td>
+<td>Connect, edit files, and request resources.</td>
+</tr>
+<tr class="even">
+<td>Slurm allocation</td>
+<td>Reserve CPUs, memory, time, and optional GPUs on a compute node.</td>
+</tr>
+<tr class="odd">
+<td>Apptainer container</td>
+<td>Provide the EL9 userspace required by the ATLAS release.</td>
+</tr>
+<tr class="even">
+<td>CVMFS</td>
+<td>Deliver centrally maintained software and container images.</td>
+</tr>
+<tr class="odd">
+<td>Your work directory</td>
+<td>Keep analysis code, builds, inputs, and outputs on writable Unity storage.</td>
+</tr>
+</tbody>
+</table>
+<p>Start the container <strong>after</strong> the allocation has started. The container runs within that allocation; it does not reserve additional resources.</p>
+<h2 id="about-this-guide">About this guide</h2>
+<p>The first chapter covers interactive environment setup. Further chapters will cover data access and authentication, batch processing, analysis workflows, and notebooks and machine learning as those procedures are established.</p>
+<p>The <a href="https://docs.unity.rc.umass.edu/documentation/">Unity documentation</a> is the reference for cluster access, storage, and scheduling. The <a href="https://atlas-software.docs.cern.ch/">ATLAS Software Documentation</a> is the reference for ATLAS software and analysis procedures.</p>
+<div class="callout">
+<p><strong>Initial version.</strong> These instructions combine the documented Unity and ATLAS interfaces. End-to-end validation on Unity's newly installed CVMFS service is still pending. The first chapter includes checks to run on an allocated compute node.</p>
+</div>
+<p>Found a problem or tested a setup? <a href="https://github.com/rafaellopesdesa/unity_atlas/issues">Open an issue</a> with the relevant command, error, and compute-node hostname. Omit credentials and tokens.</p>
+</article>
+    <footer><span>ATLAS Analysis on Unity</span><a href="https://github.com/rafaellopesdesa/unity_atlas/blob/main/docs/index.md">View page source ↗</a></footer>
+  </main>
+  <aside class="toc" aria-label="On this page"><p class="nav-label">On this page</p><nav><a href="#how-the-environment-fits-together">How the environment fits together</a><a href="#about-this-guide">About this guide</a></nav><a class="back-top" href="#main">Back to top ↑</a></aside>
+</div>
+</body>
+</html>

@@ -1,0 +1,4 @@
+[
+  {"source": "index.md", "output": "index.html", "title": "ATLAS Analysis on Unity", "label": "Overview", "description": "A practical guide to ATLAS analysis on UMass Unity."},
+  {"source": "setting-up-environment.md", "output": "setting-up-environment/index.html", "title": "Setting up the environment", "label": "Setting up the environment", "description": "Allocate Unity resources, start an EL9 container, and set up ATLAS software."}
+]
