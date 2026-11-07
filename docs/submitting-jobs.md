@@ -92,7 +92,7 @@ fi
 
 # Enable NVIDIA passthrough only when this job has allocated GPUs.
 if [[ -n ${SLURM_JOB_GPUS:-} ]]; then
-    export APPTAINER_NV=true
+    export ALRB_CONT_CMDOPTS="${ALRB_CONT_CMDOPTS:+$ALRB_CONT_CMDOPTS }--nv"
     if [[ -n ${CUDA_VISIBLE_DEVICES:-} ]]; then
         export APPTAINERENV_CUDA_VISIBLE_DEVICES="$CUDA_VISIBLE_DEVICES"
     fi
@@ -262,7 +262,7 @@ Keep directives at the top of the file, before shell commands. Slurm reads them 
 
 ### Request an NVIDIA GPU
 
-The same wrapper detects an allocated GPU through `SLURM_JOB_GPUS`, enables Apptainer's NVIDIA support, and forwards Slurm's `CUDA_VISIBLE_DEVICES` selection when present. Request the GPU at submission:
+The same wrapper detects an allocated GPU through `SLURM_JOB_GPUS`, appends `--nv` to `ALRB_CONT_CMDOPTS`, and forwards Slurm's `CUDA_VISIBLE_DEVICES` selection when present. This uses the explicit passthrough option tested successfully in the [interactive GPU recipe](../setting-up-environment/#gpu). The batch script sets it itself and does not depend on the optional `.bashrc` function. Request the GPU at submission:
 
 ```bash
 sbatch --partition=gpu --gpus=1 --cpus-per-task=4 \
@@ -282,7 +282,7 @@ Add `nvidia-smi` after setup inside `run-atlas.sh` to inspect device visibility,
 | Software setup fails | Confirm the exact project, release, and platform worked in a fresh interactive EL9 session. Check compute-node CVMFS access. |
 | `FAILED`, `OUT_OF_MEMORY`, or `TIMEOUT` | Read both logs and the `sacct` state; fix the command or adjust the measured memory/time requirement. |
 | `COMPLETED` but output is missing | Check that the payload actually ran, did not hide a failed command, and wrote to the intended run directory. Keep explicit output checks. |
-| GPU unavailable inside the payload | Check the GPU resource request, NVIDIA passthrough, Slurm's device selection, and the application's CUDA support. |
+| GPU unavailable inside the payload | Check the GPU resource request, `--nv` in the container launch line, Slurm's device selection, and the application's CUDA support. If `nvidia-smi` is missing, inspect startup mount warnings. |
 
 ## References {#references}
 

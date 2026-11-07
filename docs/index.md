@@ -33,7 +33,7 @@ The first two chapters cover interactive environment setup and Slurm batch jobs.
 The [Unity documentation](https://docs.unity.rc.umass.edu/documentation/) is the reference for cluster access, storage, and scheduling. The [ATLAS Software Documentation](https://atlas-software.docs.cern.ch/) is the reference for ATLAS software and analysis procedures.
 
 ::: {.callout}
-**Validation status.** Rafael has tested the interactive environment recipe successfully on Unity, including access to `/work` without an explicit mount. The new batch recipe has passed local checks and awaits its first end-to-end Unity test.
+**Validation status.** Rafael has tested the interactive environment recipe successfully on Unity, including access to `/work` without an explicit mount and `nvidia-smi` inside EL9 when launching with explicit `--nv`. The new batch recipe has passed local checks and awaits its first end-to-end Unity test.
 :::
 
 Found a problem or tested a setup? [Open an issue](https://github.com/rafaellopesdesa/unity_atlas/issues) with the relevant command, error, and compute-node hostname. Omit credentials and tokens.

@@ -157,32 +157,61 @@ python -c &#39;import ROOT; print(ROOT.gROOT.GetVersion())&#39;</code></pre>
 <pre class="bash"><code># Ubuntu GPU compute node, after salloc and host preparation
 nvidia-smi
 printf &#39;CUDA_VISIBLE_DEVICES=%s\n&#39; &quot;${CUDA_VISIBLE_DEVICES:-&lt;unset&gt;}&quot;</code></pre>
-<p>Apptainer's <code>APPTAINER_NV</code> enables NVIDIA device and driver-library passthrough, corresponding to <code>--nv</code>. Pass Slurm's device selection into the clean container environment as well:</p>
-<pre class="bash"><code># Ubuntu GPU compute node
-export APPTAINER_NV=true
-if [[ -n ${CUDA_VISIBLE_DEVICES:-} ]]; then
-    export APPTAINERENV_CUDA_VISIBLE_DEVICES=&quot;$CUDA_VISIBLE_DEVICES&quot;
-fi
-setupATLAS -c el9</code></pre>
+<p>Pass <strong><code>--nv</code> explicitly to the container runtime through <code>ALRB_CONT_CMDOPTS</code></strong>. This exposes the host's NVIDIA utilities and driver libraries inside EL9. Rafael confirmed that this launch sequence makes <code>nvidia-smi</code> work on Unity after it was missing with the earlier recipe. It preserves any existing container options and forwards Slurm's device selection:</p>
+<pre class="bash"><code># Ubuntu GPU compute node; module load apptainer/latest was done above.
+(
+    export ALRB_CONT_CMDOPTS=&quot;${ALRB_CONT_CMDOPTS:+$ALRB_CONT_CMDOPTS }--nv&quot;
+    if [[ -n ${CUDA_VISIBLE_DEVICES:-} ]]; then
+        export APPTAINERENV_CUDA_VISIBLE_DEVICES=&quot;$CUDA_VISIBLE_DEVICES&quot;
+    fi
+    setupATLAS -c el9
+)</code></pre>
+<p>The enclosing parentheses run the launch in a subshell. When you exit the container, these exports disappear and the host shell's previous container options are preserved. Set these options <strong>before starting the container</strong>; setting them inside an already running container cannot add the missing GPU mounts.</p>
 <p>Then check <strong>inside</strong> the container:</p>
-<pre class="bash"><code>nvidia-smi
+<pre class="bash"><code>command -v nvidia-smi
+nvidia-smi
 printf &#39;CUDA_VISIBLE_DEVICES=%s\n&#39; &quot;${CUDA_VISIBLE_DEVICES:-&lt;unset&gt;}&quot;</code></pre>
-<p>Check the launcher's output to confirm it uses Apptainer. If it selects a different runtime or the GPU check fails, inspect <code>setupATLAS -c -h</code> and the <a href="https://apptainer.org/docs/user/latest/gpu.html">Apptainer GPU documentation</a> before proceeding. Verify device visibility with the GPU framework you intend to use.</p>
-<p>GPU visibility does not install a CUDA-enabled analysis framework, or make ordinary ATLAS code use the GPU. A compatible GPU software stack is a separate choice. Do not override Slurm's device selection or set it to <code>all</code>; <code>nvidia-smi</code> may enumerate more devices than your application is assigned. Keep these GPU exports out of your general <code>.bashrc</code> and remove them in the host shell after leaving the container:</p>
-<pre class="bash"><code># Back in the Ubuntu compute-node shell after exiting the container
-unset APPTAINER_NV APPTAINERENV_CUDA_VISIBLE_DEVICES</code></pre>
+<p>Check the launcher's output for <code>apptainer ... --nv ...</code>. <code>APPTAINER_NV=true</code> is Apptainer's environment-variable equivalent, but this guide uses the explicit option that was tested successfully through the ATLAS launcher on Unity. No manual <code>PATH</code> change was needed in that test.</p>
+<p>If <code>nvidia-smi</code> is still missing, try <code>/usr/bin/nvidia-smi</code> inside the container. If the full path works but the bare command does not, inspect <code>PATH</code>. If the file is absent, check the container launch line and any mount warnings; changing <code>PATH</code> cannot expose an unmounted executable. Confirm that <code>nvidia-smi</code> works on the same GPU node outside the container first. See the <a href="https://apptainer.org/docs/user/latest/gpu.html">Apptainer GPU documentation</a> for runtime details.</p>
+<p>GPU visibility does not install a CUDA-enabled analysis framework, or make ordinary ATLAS code use the GPU. Verify device visibility and compatibility with the framework you intend to use. Do not override Slurm's device selection or set it to <code>all</code>; <code>nvidia-smi</code> may enumerate more devices than your application is assigned.</p>
+<p>The next section puts this launch sequence in a reusable <code>.bashrc</code> function so you only need to type <code>atlas_gpu</code> on the allocated node.</p>
 <h2 id="bashrc">7. Add optional shell shortcuts</h2>
 <p>Add the following to <strong>your existing</strong> <code>~/.bashrc</code> on Unity. These lines define commands; they do not allocate resources or start software at login. The same snippet is available as <a href="../examples/atlas-bashrc.sh">atlas-bashrc.sh</a>.</p>
-<pre class="bash"><code>export ATLAS_LOCAL_ROOT_BASE=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase
+<pre class="bash"><code># Add to your existing ~/.bashrc on Unity; do not replace that file.
+# This defines shortcuts only. It does not start a container or allocate a job.
+export ATLAS_LOCAL_ROOT_BASE=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase
 
-# Shortcuts for interactive Bash sessions only.
 if [[ $- == *i* ]]; then
     alias setupATLAS=&#39;source ${ATLAS_LOCAL_ROOT_BASE}/user/atlasLocalSetup.sh&#39;
     alias unity_cpu=&#39;salloc --partition=cpu --nodes=1 --ntasks=1 --cpus-per-task=4 --mem=16G --time=02:00:00&#39;
     alias unity_gpu=&#39;salloc --partition=gpu --nodes=1 --ntasks=1 --gpus=1 --cpus-per-task=4 --mem=16G --time=02:00:00&#39;
-fi</code></pre>
-<p>Reload it in the <strong>host shell</strong> with <code>source ~/.bashrc</code>. You can then use <code>unity_cpu</code> or <code>unity_gpu</code> on the login node, followed by the host preparation and container commands on the allocated node.</p>
-<p>You may also add your edited <code>ATLAS_WORKDIR</code> export. Keep <code>module load</code>, <code>setupATLAS -c el9</code>, <code>asetup</code>, and <code>lsetup</code> as explicit commands rather than executing them automatically from <code>.bashrc</code>. This avoids unexpected containers or incompatible software environments when starting new shells. In scripts, source <code>atlasLocalSetup.sh</code> explicitly; non-interactive Bash does not normally expand aliases.</p>
+
+    # Run on an allocated NVIDIA GPU node. The subshell keeps these
+    # container options local to this invocation.
+    atlas_gpu() (
+        module load apptainer/latest || return &quot;$?&quot;
+        export ALRB_CONT_CMDOPTS=&quot;${ALRB_CONT_CMDOPTS:+$ALRB_CONT_CMDOPTS }--nv&quot;
+        if [[ -n ${CUDA_VISIBLE_DEVICES:-} ]]; then
+            export APPTAINERENV_CUDA_VISIBLE_DEVICES=&quot;$CUDA_VISIBLE_DEVICES&quot;
+        fi
+        source &quot;$ATLAS_LOCAL_ROOT_BASE/user/atlasLocalSetup.sh&quot; -c el9 &quot;$@&quot;
+    )
+fi
+
+# Optional: uncomment and edit your actual group directory first.
+# export ATLAS_WORKDIR=&quot;/work/pi_YOUR_PI/$USER/atlas&quot;</code></pre>
+<p>Reload it in the <strong>host shell</strong> with <code>source ~/.bashrc</code>. The GPU workflow is then:</p>
+<pre class="bash"><code># Unity login node: request a GPU allocation.
+unity_gpu
+
+# After allocation, on the Ubuntu GPU compute node:
+# choose your work directory, then start the EL9 container.
+cd &quot;$ATLAS_WORKDIR&quot;
+atlas_gpu</code></pre>
+<p>Set <code>ATLAS_WORKDIR</code> to your actual path first, using the optional export at the bottom of the snippet or the work-directory instructions above. If your allocated shell has not loaded the new function yet, run <code>source ~/.bashrc</code> there.</p>
+<p><code>unity_gpu</code> requests resources; <code>atlas_gpu</code> loads Apptainer and starts EL9 with <code>--nv</code> on the allocated node. The function preserves existing <code>ALRB_CONT_CMDOPTS</code> options, passes the current allocation's <code>CUDA_VISIBLE_DEVICES</code>, and confines the exports to its subshell. Adding the definition to <code>.bashrc</code> does not start a container at login. You can pass extra ATLAS container arguments, for example <code>atlas_gpu -m /another/path</code> if a required path is not already visible.</p>
+<p>For CPU work, continue to use <code>unity_cpu</code>, then the host preparation and <code>setupATLAS -c el9</code> commands above.</p>
+<p>You may also add your edited <code>ATLAS_WORKDIR</code> export. Keep module loading and software startup inside explicitly invoked commands or functions, rather than executing them automatically when <code>.bashrc</code> is read. This avoids unexpected containers or incompatible software environments when starting new shells. In scripts, source <code>atlasLocalSetup.sh</code> explicitly; non-interactive Bash does not normally expand aliases.</p>
 <h2 id="sessions">8. End or reconnect to a session</h2>
 <p>Run <code>exit</code> inside the container to return to the Ubuntu compute-node shell. Run <code>exit</code> again to leave the interactive allocation and release its resources. A new allocation requires a new container and software setup; files in your work directory remain.</p>
 <p>For a session that survives an SSH disconnect, start <code>tmux new -s atlas</code> <strong>on the login node before <code>salloc</code></strong>. Detach with <strong>Ctrl+B</strong>, then <strong>D</strong>. Reconnect to the same login node and use <code>tmux attach -t atlas</code>. Record that login hostname before starting. <code>tmux</code> does not extend the Slurm wall-time limit or prevent preemption. See Unity's <a href="https://docs.unity.rc.umass.edu/documentation/jobs/">interactive-job guidance</a>.</p>
@@ -228,10 +257,14 @@ fi</code></pre>
 <td>Try a fresh container, choose one software stack, and check the release's platform.</td>
 </tr>
 <tr class="even">
-<td>GPU works on host but not in container</td>
-<td>Confirm an NVIDIA allocation, Apptainer passthrough, and preservation of Slurm's device selection.</td>
+<td><code>nvidia-smi: command not found</code> inside EL9</td>
+<td>Confirm it works on the host, restart with <code>--nv</code> through <code>ALRB_CONT_CMDOPTS</code>, and check launcher warnings. Test <code>/usr/bin/nvidia-smi</code> to distinguish a missing mount from a <code>PATH</code> issue.</td>
 </tr>
 <tr class="odd">
+<td>GPU works on host but not in container</td>
+<td>Confirm an NVIDIA allocation, <code>--nv</code> in the launch command, and preservation of Slurm's device selection.</td>
+</tr>
+<tr class="even">
 <td>Allocation is pending</td>
 <td>Inspect <code>squeue -u "$USER"</code> on the host; reduce an unnecessarily large request or consult current partition availability.</td>
 </tr>
@@ -241,11 +274,11 @@ fi</code></pre>
 <ul>
 <li><a href="https://atlas-software.docs.cern.ch/">ATLAS Software Documentation</a>: <a href="https://atlas-software.docs.cern.ch/athena/developers/tutorial/prerequisites/">environment prerequisites</a> and <a href="https://atlas-software.docs.cern.ch/analysis/analysis_tutorial/basicSetup/setup_ui/">user-interface setup</a>.</li>
 <li><a href="https://docs.unity.rc.umass.edu/documentation/">Unity documentation</a>: <a href="https://docs.unity.rc.umass.edu/documentation/jobs/salloc/">interactive CLI jobs</a>, <a href="https://docs.unity.rc.umass.edu/documentation/help/faq/">container support</a>, <a href="https://docs.unity.rc.umass.edu/documentation/cluster_specs/partitions/">partitions</a>, and <a href="https://docs.unity.rc.umass.edu/documentation/cluster_specs/storage/">storage</a>.</li>
-<li><a href="https://usatlas.github.io/af-docs/containers/apptainer/usage/">US ATLAS Analysis Facilities: Apptainer usage</a>.</li>
+<li><a href="https://usatlas.github.io/af-docs/containers/apptainer/usage/">US ATLAS Analysis Facilities: Apptainer usage</a> and <a href="https://github.com/usatlas/af-benchmarking/blob/main/README.md">benchmarking examples</a> using <code>ALRB_CONT_CMDOPTS</code>.</li>
 <li><a href="https://apptainer.org/docs/user/latest/gpu.html">Apptainer GPU support</a> and <a href="https://apptainer.org/docs/user/latest/appendix.html">environment-variable reference</a>.</li>
 </ul>
 <p><strong>Next:</strong> <a href="../submitting-jobs/">Submitting jobs with Slurm</a> recreates this environment automatically on a batch worker.</p>
-<p>Documentation reviewed: <strong>7 November 2026</strong>. Rafael reported a successful test of the interactive recipe, including <strong><code>/work</code> visibility without an explicit mount</strong>. The exact node, release, and GPU framework were not recorded; check those for your own analysis.</p>
+<p>Documentation reviewed: <strong>7 November 2026</strong>. Rafael reported a successful test of the interactive recipe, including <strong><code>/work</code> visibility without an explicit mount</strong>, and confirmed <strong><code>nvidia-smi</code> works inside EL9 with explicit <code>--nv</code> through <code>ALRB_CONT_CMDOPTS</code></strong>. The exact node, release, and GPU framework were not recorded; check those for your own analysis.</p>
 </article>
     <footer><span>ATLAS Analysis on Unity</span><a href="https://github.com/rafaellopesdesa/unity_atlas/blob/main/docs/setting-up-environment.md">View page source ↗</a></footer>
   </main>

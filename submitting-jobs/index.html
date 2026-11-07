@@ -121,7 +121,7 @@ fi
 
 # Enable NVIDIA passthrough only when this job has allocated GPUs.
 if [[ -n ${SLURM_JOB_GPUS:-} ]]; then
-    export APPTAINER_NV=true
+    export ALRB_CONT_CMDOPTS=&quot;${ALRB_CONT_CMDOPTS:+$ALRB_CONT_CMDOPTS }--nv&quot;
     if [[ -n ${CUDA_VISIBLE_DEVICES:-} ]]; then
         export APPTAINERENV_CUDA_VISIBLE_DEVICES=&quot;$CUDA_VISIBLE_DEVICES&quot;
     fi
@@ -249,7 +249,7 @@ test -s result.root</code></pre>
 <p>Requesting four CPUs does not automatically parallelize Python or ROOT. The example passes the CPU allocation into the container and sets <code>OMP_NUM_THREADS</code>; configure your application's own thread or worker count as needed. Keep that count within the allocation. <code>--mem</code> here is memory per node, not per CPU.</p>
 <p>Keep directives at the top of the file, before shell commands. Slurm reads them before executing Bash, so <code>#SBATCH --output=$HOME/...</code> does not expand <code>$HOME</code>. Use a literal path, a Slurm filename token such as <code>%j</code> (job ID), or an option on the <code>sbatch</code> command line.</p>
 <h3 id="request-an-nvidia-gpu">Request an NVIDIA GPU</h3>
-<p>The same wrapper detects an allocated GPU through <code>SLURM_JOB_GPUS</code>, enables Apptainer's NVIDIA support, and forwards Slurm's <code>CUDA_VISIBLE_DEVICES</code> selection when present. Request the GPU at submission:</p>
+<p>The same wrapper detects an allocated GPU through <code>SLURM_JOB_GPUS</code>, appends <code>--nv</code> to <code>ALRB_CONT_CMDOPTS</code>, and forwards Slurm's <code>CUDA_VISIBLE_DEVICES</code> selection when present. This uses the explicit passthrough option tested successfully in the <a href="../setting-up-environment/#gpu">interactive GPU recipe</a>. The batch script sets it itself and does not depend on the optional <code>.bashrc</code> function. Request the GPU at submission:</p>
 <pre class="bash"><code>sbatch --partition=gpu --gpus=1 --cpus-per-task=4 \
     --mem=16G --time=02:00:00 atlas-job.sbatch &quot;$ATLAS_RELEASE&quot;</code></pre>
 <p>Add <code>nvidia-smi</code> after setup inside <code>run-atlas.sh</code> to inspect device visibility, then use a CUDA-capable application and compatible software environment. The provided histogram test runs on the CPU even when a GPU is allocated; it does not validate a GPU framework. Do not replace Slurm's device selection with a hard-coded GPU number.</p>
@@ -296,7 +296,7 @@ test -s result.root</code></pre>
 </tr>
 <tr class="even">
 <td>GPU unavailable inside the payload</td>
-<td>Check the GPU resource request, NVIDIA passthrough, Slurm's device selection, and the application's CUDA support.</td>
+<td>Check the GPU resource request, <code>--nv</code> in the container launch line, Slurm's device selection, and the application's CUDA support. If <code>nvidia-smi</code> is missing, inspect startup mount warnings.</td>
 </tr>
 </tbody>
 </table>

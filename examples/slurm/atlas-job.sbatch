@@ -35,7 +35,7 @@ fi
 
 # Enable NVIDIA passthrough only when this job has allocated GPUs.
 if [[ -n ${SLURM_JOB_GPUS:-} ]]; then
-    export APPTAINER_NV=true
+    export ALRB_CONT_CMDOPTS="${ALRB_CONT_CMDOPTS:+$ALRB_CONT_CMDOPTS }--nv"
     if [[ -n ${CUDA_VISIBLE_DEVICES:-} ]]; then
         export APPTAINERENV_CUDA_VISIBLE_DEVICES="$CUDA_VISIBLE_DEVICES"
     fi
