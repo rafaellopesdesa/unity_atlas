@@ -94,10 +94,12 @@ For a CPU session, run:
 
 ```bash
 # Ubuntu compute node, in your analysis directory
-setupATLAS -c el9 -m /work
+setupATLAS -c el9
 ```
 
-`-c el9` selects the ATLAS EL9 environment. `-m /work` makes Unity's work filesystem visible inside it. File permissions still apply. If your work is on scratch instead, use `-m /scratch`; for other storage, bind the relevant host path. Check `setupATLAS -c -h` for additional mount options supported by the installed launcher.
+`-c el9` selects the ATLAS EL9 environment. On the tested Unity setup, `/work` is already visible inside the container without `-m /work`, so no explicit mount is needed for the standard workflow. File permissions still apply.
+
+Use `-m` only when a directory you need is **not already visible** inside the container. For example, if `/scratch` is missing, leave the container and relaunch with `setupATLAS -c el9 -m /scratch`. Check the paths you need after entering; automatic mounts can depend on the launcher and site configuration. `setupATLAS -c -h` describes additional mount options.
 
 The launcher initializes the ATLAS user interface in the container. Check it before selecting a release:
 
@@ -112,7 +114,7 @@ ls /cvmfs/atlas.cern.ch/repo
 ls /work
 ```
 
-Expect an EL9 distribution and `x86_64`. A container shares the host kernel, so `uname -r` is **not** a test of its Linux distribution. The launcher may map the working directory to `/srv` and use a different home path. Check `pwd`; your `/work/...` directory should also be accessible through the explicit mount. Host variables such as `ATLAS_WORKDIR` need not be preserved.
+Expect an EL9 distribution and `x86_64`. A container shares the host kernel, so `uname -r` is **not** a test of its Linux distribution. The launcher may map the working directory to `/srv` and use a different home path. Check `pwd` and access to your `/work/...` directory. Host variables such as `ATLAS_WORKDIR` need not be preserved.
 
 If `lsetup` is unavailable despite a successful container launch, initialize the interface explicitly **inside** that container:
 
@@ -185,7 +187,7 @@ export APPTAINER_NV=true
 if [[ -n ${CUDA_VISIBLE_DEVICES:-} ]]; then
     export APPTAINERENV_CUDA_VISIBLE_DEVICES="$CUDA_VISIBLE_DEVICES"
 fi
-setupATLAS -c el9 -m /work
+setupATLAS -c el9
 ```
 
 Then check **inside** the container:
@@ -250,4 +252,4 @@ For a session that survives an SSH disconnect, start `tmux new -s atlas` **on th
 - [US ATLAS Analysis Facilities: Apptainer usage](https://usatlas.github.io/af-docs/containers/apptainer/usage/).
 - [Apptainer GPU support](https://apptainer.org/docs/user/latest/gpu.html) and [environment-variable reference](https://apptainer.org/docs/user/latest/appendix.html).
 
-Documentation reviewed: **7 November 2026**. Unity runtime validation: **pending**.
+Documentation reviewed: **7 November 2026**. Unity check reported on that date: **`/work` is visible without an explicit mount**. Full environment and GPU validation: **pending**.

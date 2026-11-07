@@ -22,7 +22,7 @@ Serve the repository root locally with `python3 -m http.server 8000`, then open 
 
 ## Validation status
 
-Documentation reviewed on 7 November 2026 against Unity, ATLAS, US ATLAS AF, and Apptainer references. **Commands have not yet been run on Unity.** The newly installed CVMFS service, container mounts, and GPU passthrough need an on-cluster smoke test. No particular AnalysisBase/Athena release or group storage path is assumed.
+Documentation reviewed on 7 November 2026 against Unity, ATLAS, US ATLAS AF, and Apptainer references. Rafael confirmed on Unity that **`/work` is visible inside the container without `-m /work`**; the standard commands therefore omit that option. **Full end-to-end validation is still pending**, including software setup and GPU passthrough. No particular AnalysisBase/Athena release or group storage path is assumed.
 
 The canonical ATLAS documentation returned HTTP 403 from the research environment. The equivalent prerequisites page in its CERN-hosted documentation mirror was readable and was used to cross-check the EL9 setup sequence: <https://shahzad.web.cern.ch/shahzad/atlas-software-docs/athena/developers/tutorial/prerequisites/>. Reader-facing links point to the canonical documentation.
 

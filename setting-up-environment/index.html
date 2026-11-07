@@ -110,8 +110,9 @@ pwd -P</code></pre>
 <h2 id="container">4. Enter the EL9 container</h2>
 <p>For a CPU session, run:</p>
 <pre class="bash"><code># Ubuntu compute node, in your analysis directory
-setupATLAS -c el9 -m /work</code></pre>
-<p><code>-c el9</code> selects the ATLAS EL9 environment. <code>-m /work</code> makes Unity's work filesystem visible inside it. File permissions still apply. If your work is on scratch instead, use <code>-m /scratch</code>; for other storage, bind the relevant host path. Check <code>setupATLAS -c -h</code> for additional mount options supported by the installed launcher.</p>
+setupATLAS -c el9</code></pre>
+<p><code>-c el9</code> selects the ATLAS EL9 environment. On the tested Unity setup, <code>/work</code> is already visible inside the container without <code>-m /work</code>, so no explicit mount is needed for the standard workflow. File permissions still apply.</p>
+<p>Use <code>-m</code> only when a directory you need is <strong>not already visible</strong> inside the container. For example, if <code>/scratch</code> is missing, leave the container and relaunch with <code>setupATLAS -c el9 -m /scratch</code>. Check the paths you need after entering; automatic mounts can depend on the launcher and site configuration. <code>setupATLAS -c -h</code> describes additional mount options.</p>
 <p>The launcher initializes the ATLAS user interface in the container. Check it before selecting a release:</p>
 <pre class="bash"><code># Inside the EL9 container
 cat /etc/os-release
@@ -121,7 +122,7 @@ type lsetup
 type asetup
 ls /cvmfs/atlas.cern.ch/repo
 ls /work</code></pre>
-<p>Expect an EL9 distribution and <code>x86_64</code>. A container shares the host kernel, so <code>uname -r</code> is <strong>not</strong> a test of its Linux distribution. The launcher may map the working directory to <code>/srv</code> and use a different home path. Check <code>pwd</code>; your <code>/work/...</code> directory should also be accessible through the explicit mount. Host variables such as <code>ATLAS_WORKDIR</code> need not be preserved.</p>
+<p>Expect an EL9 distribution and <code>x86_64</code>. A container shares the host kernel, so <code>uname -r</code> is <strong>not</strong> a test of its Linux distribution. The launcher may map the working directory to <code>/srv</code> and use a different home path. Check <code>pwd</code> and access to your <code>/work/...</code> directory. Host variables such as <code>ATLAS_WORKDIR</code> need not be preserved.</p>
 <p>If <code>lsetup</code> is unavailable despite a successful container launch, initialize the interface explicitly <strong>inside</strong> that container:</p>
 <pre class="bash"><code>export ATLAS_LOCAL_ROOT_BASE=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase
 source &quot;$ATLAS_LOCAL_ROOT_BASE/user/atlasLocalSetup.sh&quot;</code></pre>
@@ -162,7 +163,7 @@ export APPTAINER_NV=true
 if [[ -n ${CUDA_VISIBLE_DEVICES:-} ]]; then
     export APPTAINERENV_CUDA_VISIBLE_DEVICES=&quot;$CUDA_VISIBLE_DEVICES&quot;
 fi
-setupATLAS -c el9 -m /work</code></pre>
+setupATLAS -c el9</code></pre>
 <p>Then check <strong>inside</strong> the container:</p>
 <pre class="bash"><code>nvidia-smi
 printf &#39;CUDA_VISIBLE_DEVICES=%s\n&#39; &quot;${CUDA_VISIBLE_DEVICES:-&lt;unset&gt;}&quot;</code></pre>
@@ -243,7 +244,7 @@ fi</code></pre>
 <li><a href="https://usatlas.github.io/af-docs/containers/apptainer/usage/">US ATLAS Analysis Facilities: Apptainer usage</a>.</li>
 <li><a href="https://apptainer.org/docs/user/latest/gpu.html">Apptainer GPU support</a> and <a href="https://apptainer.org/docs/user/latest/appendix.html">environment-variable reference</a>.</li>
 </ul>
-<p>Documentation reviewed: <strong>7 November 2026</strong>. Unity runtime validation: <strong>pending</strong>.</p>
+<p>Documentation reviewed: <strong>7 November 2026</strong>. Unity check reported on that date: <strong><code>/work</code> is visible without an explicit mount</strong>. Full environment and GPU validation: <strong>pending</strong>.</p>
 </article>
     <footer><span>ATLAS Analysis on Unity</span><a href="https://github.com/rafaellopesdesa/unity_atlas/blob/main/docs/setting-up-environment.md">View page source ↗</a></footer>
   </main>
