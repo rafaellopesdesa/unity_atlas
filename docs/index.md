@@ -8,6 +8,10 @@ This guide documents how to use Unity as an analysis facility for ATLAS, from an
 **[Setting up the environment →](setting-up-environment/)**
 
 Request CPU or GPU resources, enter an EL9 container, and load the software needed for your analysis. Includes optional shell shortcuts and checks for common setup problems.
+
+**[Submitting jobs with Slurm →](submitting-jobs/)**
+
+Turn the tested interactive environment into a batch job. Includes downloadable scripts, a PyROOT smoke test, resource requests, logs, and troubleshooting.
 :::
 
 ## How the environment fits together
@@ -24,12 +28,12 @@ Start the container **after** the allocation has started. The container runs wit
 
 ## About this guide
 
-The first chapter covers interactive environment setup. Further chapters will cover data access and authentication, batch processing, analysis workflows, and notebooks and machine learning as those procedures are established.
+The first two chapters cover interactive environment setup and Slurm batch jobs. Further chapters will cover data access and authentication, analysis workflows, and notebooks and machine learning as those procedures are established.
 
 The [Unity documentation](https://docs.unity.rc.umass.edu/documentation/) is the reference for cluster access, storage, and scheduling. The [ATLAS Software Documentation](https://atlas-software.docs.cern.ch/) is the reference for ATLAS software and analysis procedures.
 
 ::: {.callout}
-**Initial version.** These instructions combine the documented Unity and ATLAS interfaces. End-to-end validation on Unity's newly installed CVMFS service is still pending. The first chapter includes checks to run on an allocated compute node.
+**Validation status.** Rafael has tested the interactive environment recipe successfully on Unity, including access to `/work` without an explicit mount. The new batch recipe has passed local checks and awaits its first end-to-end Unity test.
 :::
 
 Found a problem or tested a setup? [Open an issue](https://github.com/rafaellopesdesa/unity_atlas/issues) with the relevant command, error, and compute-node hostname. Omit credentials and tokens.

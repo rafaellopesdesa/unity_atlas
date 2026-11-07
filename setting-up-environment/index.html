@@ -20,8 +20,8 @@
   <aside class="sidebar" id="sidebar">
     <div class="search" hidden><label for="search-input">Search this guide</label><input id="search-input" type="search" placeholder="Search topics or commands…" autocomplete="off"><p id="search-status" aria-live="polite"></p><ul id="search-results" hidden></ul></div>
     <p class="nav-label">Documentation</p>
-    <nav class="chapters" aria-label="Chapters"><a href="../index.html">Overview</a><a aria-current="page" href="index.html">Setting up the environment</a></nav>
-    <div class="sidebar-note"><span class="status-dot"></span> Growing guide<p>Environment setup is the first chapter. More analysis workflows will follow.</p></div>
+    <nav class="chapters" aria-label="Chapters"><a href="../index.html">Overview</a><a aria-current="page" href="index.html">Setting up the environment</a><a href="../submitting-jobs/index.html">Submitting jobs with Slurm</a></nav>
+    <div class="sidebar-note"><span class="status-dot"></span> Growing guide<p>Interactive setup and batch jobs. More analysis workflows will follow.</p></div>
     <a class="sidebar-source" href="https://github.com/rafaellopesdesa/unity_atlas/issues">Suggest an improvement ↗</a>
   </aside>
   <main id="main" tabindex="-1">
@@ -30,7 +30,7 @@
     <h1>Setting up the environment</h1>
     <article><p>Use a Slurm allocation for your work, then start an EL9 container on the allocated compute node. Inside it, ATLAS software is available through CVMFS without a local installation.</p>
 <div class="callout">
-<p><strong>Before you begin:</strong> you need a Unity account, access to a group work directory, and a Bash shell. CVMFS must be accessible on the <strong>compute node</strong>, not just the login node. This first version has not yet been tested end to end on Unity.</p>
+<p><strong>Before you begin:</strong> you need a Unity account, access to a group work directory, and a Bash shell. CVMFS must be accessible on the <strong>compute node</strong>, not just the login node. Rafael has tested this interactive recipe successfully on Unity.</p>
 </div>
 <h2 id="connect">1. Connect to Unity</h2>
 <p>From your own computer, connect using your Unity username:</p>
@@ -167,7 +167,7 @@ setupATLAS -c el9</code></pre>
 <p>Then check <strong>inside</strong> the container:</p>
 <pre class="bash"><code>nvidia-smi
 printf &#39;CUDA_VISIBLE_DEVICES=%s\n&#39; &quot;${CUDA_VISIBLE_DEVICES:-&lt;unset&gt;}&quot;</code></pre>
-<p>Check the launcher's output to confirm it uses Apptainer. If it selects a different runtime or the GPU check fails, inspect <code>setupATLAS -c -h</code> and the <a href="https://apptainer.org/docs/user/latest/gpu.html">Apptainer GPU documentation</a> before proceeding. This combined ATLAS/Unity GPU path still needs validation on Unity.</p>
+<p>Check the launcher's output to confirm it uses Apptainer. If it selects a different runtime or the GPU check fails, inspect <code>setupATLAS -c -h</code> and the <a href="https://apptainer.org/docs/user/latest/gpu.html">Apptainer GPU documentation</a> before proceeding. Verify device visibility with the GPU framework you intend to use.</p>
 <p>GPU visibility does not install a CUDA-enabled analysis framework, or make ordinary ATLAS code use the GPU. A compatible GPU software stack is a separate choice. Do not override Slurm's device selection or set it to <code>all</code>; <code>nvidia-smi</code> may enumerate more devices than your application is assigned. Keep these GPU exports out of your general <code>.bashrc</code> and remove them in the host shell after leaving the container:</p>
 <pre class="bash"><code># Back in the Ubuntu compute-node shell after exiting the container
 unset APPTAINER_NV APPTAINERENV_CUDA_VISIBLE_DEVICES</code></pre>
@@ -244,7 +244,8 @@ fi</code></pre>
 <li><a href="https://usatlas.github.io/af-docs/containers/apptainer/usage/">US ATLAS Analysis Facilities: Apptainer usage</a>.</li>
 <li><a href="https://apptainer.org/docs/user/latest/gpu.html">Apptainer GPU support</a> and <a href="https://apptainer.org/docs/user/latest/appendix.html">environment-variable reference</a>.</li>
 </ul>
-<p>Documentation reviewed: <strong>7 November 2026</strong>. Unity check reported on that date: <strong><code>/work</code> is visible without an explicit mount</strong>. Full environment and GPU validation: <strong>pending</strong>.</p>
+<p><strong>Next:</strong> <a href="../submitting-jobs/">Submitting jobs with Slurm</a> recreates this environment automatically on a batch worker.</p>
+<p>Documentation reviewed: <strong>7 November 2026</strong>. Rafael reported a successful test of the interactive recipe, including <strong><code>/work</code> visibility without an explicit mount</strong>. The exact node, release, and GPU framework were not recorded; check those for your own analysis.</p>
 </article>
     <footer><span>ATLAS Analysis on Unity</span><a href="https://github.com/rafaellopesdesa/unity_atlas/blob/main/docs/setting-up-environment.md">View page source ↗</a></footer>
   </main>

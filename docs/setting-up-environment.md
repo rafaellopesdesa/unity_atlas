@@ -1,7 +1,7 @@
 Use a Slurm allocation for your work, then start an EL9 container on the allocated compute node. Inside it, ATLAS software is available through CVMFS without a local installation.
 
 ::: {.callout}
-**Before you begin:** you need a Unity account, access to a group work directory, and a Bash shell. CVMFS must be accessible on the **compute node**, not just the login node. This first version has not yet been tested end to end on Unity.
+**Before you begin:** you need a Unity account, access to a group work directory, and a Bash shell. CVMFS must be accessible on the **compute node**, not just the login node. Rafael has tested this interactive recipe successfully on Unity.
 :::
 
 ## 1. Connect to Unity {#connect}
@@ -197,7 +197,7 @@ nvidia-smi
 printf 'CUDA_VISIBLE_DEVICES=%s\n' "${CUDA_VISIBLE_DEVICES:-<unset>}"
 ```
 
-Check the launcher's output to confirm it uses Apptainer. If it selects a different runtime or the GPU check fails, inspect `setupATLAS -c -h` and the [Apptainer GPU documentation](https://apptainer.org/docs/user/latest/gpu.html) before proceeding. This combined ATLAS/Unity GPU path still needs validation on Unity.
+Check the launcher's output to confirm it uses Apptainer. If it selects a different runtime or the GPU check fails, inspect `setupATLAS -c -h` and the [Apptainer GPU documentation](https://apptainer.org/docs/user/latest/gpu.html) before proceeding. Verify device visibility with the GPU framework you intend to use.
 
 GPU visibility does not install a CUDA-enabled analysis framework, or make ordinary ATLAS code use the GPU. A compatible GPU software stack is a separate choice. Do not override Slurm's device selection or set it to `all`; `nvidia-smi` may enumerate more devices than your application is assigned. Keep these GPU exports out of your general `.bashrc` and remove them in the host shell after leaving the container:
 
@@ -252,4 +252,6 @@ For a session that survives an SSH disconnect, start `tmux new -s atlas` **on th
 - [US ATLAS Analysis Facilities: Apptainer usage](https://usatlas.github.io/af-docs/containers/apptainer/usage/).
 - [Apptainer GPU support](https://apptainer.org/docs/user/latest/gpu.html) and [environment-variable reference](https://apptainer.org/docs/user/latest/appendix.html).
 
-Documentation reviewed: **7 November 2026**. Unity check reported on that date: **`/work` is visible without an explicit mount**. Full environment and GPU validation: **pending**.
+**Next:** [Submitting jobs with Slurm](../submitting-jobs/) recreates this environment automatically on a batch worker.
+
+Documentation reviewed: **7 November 2026**. Rafael reported a successful test of the interactive recipe, including **`/work` visibility without an explicit mount**. The exact node, release, and GPU framework were not recorded; check those for your own analysis.

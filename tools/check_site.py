@@ -68,4 +68,11 @@ for path, page in pages.items():
             subprocess.run(["bash", "-n", script.name], check=True)
         blocks += 1
 assert blocks > 0, "No Bash code blocks were checked"
+# The examples readers download must be the same scripts they see on the page.
+batch_page = pages[(ROOT / "submitting-jobs/index.html").resolve()]
+for example in (ROOT / "examples/slurm").iterdir():
+    if example.suffix in (".sh", ".sbatch"):
+        subprocess.run(["bash", "-n", str(example)], check=True)
+        assert example.read_text().strip() in [block.strip() for block in batch_page.blocks], \
+            f"Displayed batch script differs from download: {example.name}"
 print(f"Checked {len(pages)} pages, {links} local links, and {blocks} Bash blocks.")

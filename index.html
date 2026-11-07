@@ -20,8 +20,8 @@
   <aside class="sidebar" id="sidebar">
     <div class="search" hidden><label for="search-input">Search this guide</label><input id="search-input" type="search" placeholder="Search topics or commands…" autocomplete="off"><p id="search-status" aria-live="polite"></p><ul id="search-results" hidden></ul></div>
     <p class="nav-label">Documentation</p>
-    <nav class="chapters" aria-label="Chapters"><a aria-current="page" href="index.html">Overview</a><a href="setting-up-environment/index.html">Setting up the environment</a></nav>
-    <div class="sidebar-note"><span class="status-dot"></span> Growing guide<p>Environment setup is the first chapter. More analysis workflows will follow.</p></div>
+    <nav class="chapters" aria-label="Chapters"><a aria-current="page" href="index.html">Overview</a><a href="setting-up-environment/index.html">Setting up the environment</a><a href="submitting-jobs/index.html">Submitting jobs with Slurm</a></nav>
+    <div class="sidebar-note"><span class="status-dot"></span> Growing guide<p>Interactive setup and batch jobs. More analysis workflows will follow.</p></div>
     <a class="sidebar-source" href="https://github.com/rafaellopesdesa/unity_atlas/issues">Suggest an improvement ↗</a>
   </aside>
   <main id="main" tabindex="-1">
@@ -34,6 +34,8 @@
 <h2>Start here</h2>
 <p><strong><a href="setting-up-environment/">Setting up the environment →</a></strong></p>
 <p>Request CPU or GPU resources, enter an EL9 container, and load the software needed for your analysis. Includes optional shell shortcuts and checks for common setup problems.</p>
+<p><strong><a href="submitting-jobs/">Submitting jobs with Slurm →</a></strong></p>
+<p>Turn the tested interactive environment into a batch job. Includes downloadable scripts, a PyROOT smoke test, resource requests, logs, and troubleshooting.</p>
 </section>
 <h2 id="how-the-environment-fits-together">How the environment fits together</h2>
 <table>
@@ -72,10 +74,10 @@
 </table>
 <p>Start the container <strong>after</strong> the allocation has started. The container runs within that allocation; it does not reserve additional resources.</p>
 <h2 id="about-this-guide">About this guide</h2>
-<p>The first chapter covers interactive environment setup. Further chapters will cover data access and authentication, batch processing, analysis workflows, and notebooks and machine learning as those procedures are established.</p>
+<p>The first two chapters cover interactive environment setup and Slurm batch jobs. Further chapters will cover data access and authentication, analysis workflows, and notebooks and machine learning as those procedures are established.</p>
 <p>The <a href="https://docs.unity.rc.umass.edu/documentation/">Unity documentation</a> is the reference for cluster access, storage, and scheduling. The <a href="https://atlas-software.docs.cern.ch/">ATLAS Software Documentation</a> is the reference for ATLAS software and analysis procedures.</p>
 <div class="callout">
-<p><strong>Initial version.</strong> These instructions combine the documented Unity and ATLAS interfaces. End-to-end validation on Unity's newly installed CVMFS service is still pending. The first chapter includes checks to run on an allocated compute node.</p>
+<p><strong>Validation status.</strong> Rafael has tested the interactive environment recipe successfully on Unity, including access to <code>/work</code> without an explicit mount. The new batch recipe has passed local checks and awaits its first end-to-end Unity test.</p>
 </div>
 <p>Found a problem or tested a setup? <a href="https://github.com/rafaellopesdesa/unity_atlas/issues">Open an issue</a> with the relevant command, error, and compute-node hostname. Omit credentials and tokens.</p>
 </article>
