@@ -6,6 +6,8 @@ The first chapter, **Setting up the environment**, covers Slurm CPU/GPU allocati
 
 The second chapter, **Submitting jobs with Slurm**, explains worker-side environment setup and provides a self-contained PyROOT smoke test. Downloadable scripts are in `examples/slurm/`; the rendered chapter is `submitting-jobs/index.html`.
 
+The third chapter, **Using VS Code**, covers local SSH configuration, compute allocations, ordinary Remote SSH, a container RemoteCommand launcher, and Remote Tunnels started inside EL9. It includes Python Run/debug checks, notebook kernel selection, a remote Jupyter alternative, and session cleanup. Downloadable helpers and examples are in `examples/vscode/`; the rendered chapter is `using-vscode/index.html`.
+
 ## Publish with GitHub Pages
 
 In **Settings → Pages**, select **Deploy from a branch**, **main**, and **/ (root)**. Save. The expected project URL is <https://rafaellopesdesa.github.io/unity_atlas/> after Pages is enabled and its deployment finishes.
@@ -18,7 +20,7 @@ The rendered HTML, CSS, JavaScript, and `.nojekyll` are committed. No Jekyll the
 2. For a new chapter, add its metadata to `docs/pages.json` in navigation order.
 3. With Python 3 and [Pandoc](https://pandoc.org/installing.html) installed, run `python3 tools/build_site.py` from any directory. Initial build: Pandoc 3.1.3.
 4. Run `python3 tools/check_site.py`, `node --check assets/site.js`, and `bash -n examples/atlas-bashrc.sh`.
-5. If editing example scripts, update their matching code blocks in `docs/setting-up-environment.md` or `docs/submitting-jobs.md` too. The site checker verifies that the displayed scripts match the downloads.
+5. If editing examples displayed in full, update their matching code blocks in `docs/setting-up-environment.md`, `docs/submitting-jobs.md`, or `docs/using-vscode.md` too. The site checker verifies that these displayed examples match the downloads, checks Bash syntax and JSON, and parses the Python example.
 6. Commit the sources **and** regenerated HTML/search index together.
 
 Serve the repository root locally with `python3 -m http.server 8000`, then open <http://localhost:8000/>. The site also uses relative asset links so it works under the GitHub project subpath. `tools/template.html` and `assets/style.css` define the shared layout. All content and navigation remain readable without JavaScript; search, copy buttons, and the mobile menu are progressive enhancements.
@@ -28,6 +30,8 @@ Serve the repository root locally with `python3 -m http.server 8000`, then open 
 Documentation reviewed on 7 November 2026 against Unity, ATLAS, US ATLAS AF, and Apptainer references. Rafael confirmed on Unity that **`/work` is visible inside the container without `-m /work`**; the standard commands therefore omit that option. **Rafael has now tested the interactive recipe successfully on Unity.** He also confirmed that `nvidia-smi` works inside EL9 when `--nv` is explicitly passed through `ALRB_CONT_CMDOPTS`. Both GPU recipes now use this form; `examples/atlas-bashrc.sh` supplies an optional `atlas_gpu` function for interactive use. The exact node, release, and GPU framework were not recorded. The new batch recipe has passed local syntax, link, and simulated execution checks, but still needs its first end-to-end Unity test. No particular AnalysisBase/Athena release or group storage path is assumed.
 
 The canonical ATLAS documentation returned HTTP 403 from the research environment. The equivalent prerequisites page in its CERN-hosted documentation mirror was readable and was used to cross-check the EL9 setup sequence: <https://shahzad.web.cern.ch/shahzad/atlas-software-docs/athena/developers/tutorial/prerequisites/>. Reader-facing links point to the canonical documentation.
+
+The VS Code chapter was reviewed on 8 November 2026 against Unity, ATLAS, Microsoft, DCCN, and Slurm sources. Local mocked launcher checks cover bootstrap input preservation, ATLAS alias setup, job validation, and failure propagation. Actual Unity Run/F5, notebook, reconnect, and GPU-framework tests remain pending. The SSH container method is a CPU-first prototype; the tunnel method starts directly in the existing configured allocation and is the preferred initial GPU test. No Unity support for outbound tunnels is assumed.
 
 To record a Unity smoke test, include the date, compute-node hostname and architecture, Apptainer version and runtime selected by ALRB, resolved container image, `/etc/os-release` inside the container, storage visibility, exact ATLAS release/platform, and ROOT/PyROOT checks. For a GPU allocation, also verify passthrough and the Slurm-assigned device selection with the intended CUDA framework.
 

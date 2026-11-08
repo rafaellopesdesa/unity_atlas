@@ -19,5 +19,12 @@
     "title": "Submitting jobs with Slurm",
     "label": "Submitting jobs with Slurm",
     "description": "Run ATLAS analysis in EL9 containers on Unity batch workers, with downloadable Slurm scripts."
+  },
+  {
+    "source": "using-vscode.md",
+    "output": "using-vscode/index.html",
+    "title": "Using VS Code",
+    "label": "Using VS Code",
+    "description": "Use VS Code on Unity with EL9, ATLAS Python, debugging, and notebook kernels through SSH or Remote Tunnels."
   }
 ]

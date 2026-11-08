@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Check local links/anchors and shell syntax without running cluster commands."""
+import ast
 import json
 import subprocess
 import tempfile
@@ -16,7 +17,9 @@ class Page(HTMLParser):
         self.ids = set()
         self.links = []
         self.blocks = []
+        self.typed_blocks = []
         self.code = None
+        self.language = ""
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
@@ -25,8 +28,9 @@ class Page(HTMLParser):
             self.ids.add(attrs["id"])
         if tag in ("a", "link", "script"):
             self.links.append(attrs.get("href", attrs.get("src", "")))
-        if tag == "pre" and "bash" in attrs.get("class", "").split():
+        if tag == "pre":
             self.code = []
+            self.language = attrs.get("class", "").split()
 
     def handle_data(self, data):
         if self.code is not None:
@@ -34,7 +38,10 @@ class Page(HTMLParser):
 
     def handle_endtag(self, tag):
         if tag == "pre" and self.code is not None:
-            self.blocks.append("".join(self.code))
+            block = "".join(self.code)
+            self.typed_blocks.append((self.language, block))
+            if "bash" in self.language:
+                self.blocks.append(block)
             self.code = None
 
 
@@ -67,6 +74,9 @@ for path, page in pages.items():
             script.flush()
             subprocess.run(["bash", "-n", script.name], check=True)
         blocks += 1
+    for languages, block in page.typed_blocks:
+        if "json" in languages:
+            json.loads(block)
 assert blocks > 0, "No Bash code blocks were checked"
 # The examples readers download must be the same scripts they see on the page.
 examples = [(ROOT / "examples/atlas-bashrc.sh", "setting-up-environment/index.html")]
@@ -78,4 +88,18 @@ for example, page_path in examples:
     page = pages[(ROOT / page_path).resolve()]
     assert example.read_text().strip() in [block.strip() for block in page.blocks], \
         f"Displayed script differs from download: {example.name}"
+# The VS Code launchers are linked downloads; the Python/JSON examples are
+# also displayed in full and must stay synchronized with their downloads.
+for example in (ROOT / "examples/vscode").glob("*.sh"):
+    subprocess.run(["bash", "-n", str(example)], check=True)
+vscode_page = pages[(ROOT / "using-vscode/index.html").resolve()]
+for name in ("check_atlas.py", "launch.json"):
+    example = ROOT / "examples/vscode" / name
+    content = example.read_text()
+    if example.suffix == ".py":
+        ast.parse(content, filename=str(example))
+    else:
+        json.loads(content)
+    assert content.strip() in [block.strip() for _, block in vscode_page.typed_blocks], \
+        f"Displayed example differs from download: {name}"
 print(f"Checked {len(pages)} pages, {links} local links, and {blocks} Bash blocks.")
