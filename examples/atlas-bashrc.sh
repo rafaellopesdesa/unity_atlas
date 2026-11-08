@@ -1,6 +1,6 @@
 # Add to your existing ~/.bashrc on Unity; do not replace that file.
 # This defines shortcuts only. It does not start a container or allocate a job.
-# Replace YOUR_PI with your Unity PI directory, for example rclsa_umass_edu.
+# Replace YOUR_PI with pi_<PI's Unity username>, e.g. pi_rclsa_umass_edu.
 export USER_PI=YOUR_PI
 export ATLAS_WORKDIR="/work/${USER_PI}/${USER}/atlas"
 export ATLAS_LOCAL_ROOT_BASE=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase

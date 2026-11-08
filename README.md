@@ -2,7 +2,7 @@
 
 A growing guide to using UMass Unity as an analysis facility for ATLAS.
 
-The first chapter, **Setting up the environment**, covers one-time creation of `/work/${USER_PI}/${USER}` and `/project/${USER_PI}/${USER}`, persistent `USER_PI` configuration, Slurm CPU/GPU allocations, CVMFS, an EL9 container through ATLASLocalRootBase and Apptainer, software selection, Bash shortcuts, and troubleshooting. Later chapters assume those directory settings and interactive shortcuts are configured.
+The first chapter, **Setting up the environment**, covers one-time creation of `/work/${USER_PI}/${USER}` and `/project/${USER_PI}/${USER}`, persistent `USER_PI` configuration, Slurm CPU/GPU allocations, CVMFS, an EL9 container through ATLASLocalRootBase and Apptainer, software selection, Bash shortcuts, and troubleshooting. `USER_PI` follows Unity's `pi_[PI's username]` convention, for example `pi_rclsa_umass_edu`. Later chapters assume those directory settings and interactive shortcuts are configured.
 
 The second chapter, **Submitting jobs with Slurm**, explains worker-side environment setup and provides a self-contained PyROOT smoke test. Downloadable scripts are in `examples/slurm/`; the rendered chapter is `submitting-jobs/index.html`.
 

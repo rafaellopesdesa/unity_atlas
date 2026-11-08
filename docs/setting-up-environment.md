@@ -17,10 +17,10 @@ Follow Unity's [SSH guide](https://docs.unity.rc.umass.edu/documentation/connect
 
 ## 2. Create your working directories once {#directories}
 
-On the **Unity login node**, set `USER_PI` to your PI's existing Unity directory name, for example `rclsa_umass_edu`. Substitute your own PI directory for `YOUR_PI`. `$USER` is already your Unity username after logging in, so leave it as a variable.
+On the **Unity login node**, set `USER_PI` to your PI's existing Unity directory name. Unity uses the convention `pi_[PI's username]`: the prefix `pi_` followed by the PI's Unity username, for example `pi_rclsa_umass_edu`. Substitute that complete directory name, including `pi_`, for `YOUR_PI`. `$USER` is already your own Unity username after logging in, so leave it as a variable.
 
 ```bash
-# Unity login node — replace YOUR_PI, for example with rclsa_umass_edu.
+# Unity login node — replace YOUR_PI, for example with pi_rclsa_umass_edu.
 export USER_PI=YOUR_PI
 mkdir -p "/work/${USER_PI}/${USER}"
 mkdir -p "/project/${USER_PI}/${USER}"
@@ -245,12 +245,12 @@ The next section puts this launch sequence in a reusable `.bashrc` function so y
 
 ## 8. Save your shell configuration {#bashrc}
 
-Add the following to **your existing** `~/.bashrc` on Unity, replacing `YOUR_PI` with your actual PI directory (for example, `rclsa_umass_edu`). If you already added `USER_PI` above, keep just one edited definition. These lines save the directory settings and define commands; they do not create directories, allocate resources, or start software at login. **The remaining chapters assume this configuration is in place.** The same snippet is available as [atlas-bashrc.sh](../examples/atlas-bashrc.sh).
+Add the following to **your existing** `~/.bashrc` on Unity, replacing `YOUR_PI` with your actual PI directory, including the `pi_` prefix (for example, `pi_rclsa_umass_edu`). If you already added `USER_PI` above, keep just one edited definition. These lines save the directory settings and define commands; they do not create directories, allocate resources, or start software at login. **The remaining chapters assume this configuration is in place.** The same snippet is available as [atlas-bashrc.sh](../examples/atlas-bashrc.sh).
 
 ```bash
 # Add to your existing ~/.bashrc on Unity; do not replace that file.
 # This defines shortcuts only. It does not start a container or allocate a job.
-# Replace YOUR_PI with your Unity PI directory, for example rclsa_umass_edu.
+# Replace YOUR_PI with pi_<PI's Unity username>, e.g. pi_rclsa_umass_edu.
 export USER_PI=YOUR_PI
 export ATLAS_WORKDIR="/work/${USER_PI}/${USER}/atlas"
 export ATLAS_LOCAL_ROOT_BASE=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase
