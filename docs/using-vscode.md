@@ -2,17 +2,13 @@ VS Code can edit files on Unity and run Python with ATLAS software inside EL9. T
 
 This chapter includes the Unity connection steps and three ways to work. For integrated ATLAS Python execution, start with the **container tunnel** method; it starts VS Code from the environment you have already prepared.
 
-::: {.callout}
-**Validation status.** The underlying interactive EL9 and NVIDIA passthrough recipes have been tested on Unity. The VS Code workflows below have been checked against the upstream documentation and locally checked for syntax and launcher behavior, but still need end-to-end tests on Unity. In particular, test Python Run, debugging, and reconnection before relying on either container backend for a long session.
-:::
-
 ## Choose a connection method
 
 | Method | Where the VS Code backend runs | ATLAS Python integration |
 | --- | --- | --- |
 | [A. Ordinary Remote SSH](#ordinary-ssh) | Ubuntu on your allocated compute node | Edit files and run ATLAS commands in a container terminal. Run/debug buttons need a container backend; a separate remote Jupyter server is another option for notebooks. |
 | [B. Remote SSH into EL9](#container-ssh) | EL9, entered by an SSH startup command | Python execution and debugging in the container. Uses Unity's SSH route, with an additional launcher. Start with a CPU allocation. |
-| [C. Remote Tunnels inside EL9](#container-tunnel) | EL9, launched from your configured ATLAS shell | Python execution and debugging in the container. Also the preferred first test for GPUs, because it starts directly in the allocated GPU shell. Requires access to Microsoft's tunnel service. |
+| [C. Remote Tunnels inside EL9](#container-tunnel) | EL9, launched from your configured ATLAS shell | Python execution and debugging in the container. Preferred for GPUs because it starts directly in the allocated GPU shell. Requires access to Microsoft's tunnel service. |
 
 All three methods use a **Slurm compute allocation**. A remote connection does not reserve resources. Do not run analysis or a persistent analysis backend on a login node.
 
@@ -58,16 +54,16 @@ Or, for a GPU session, use this allocation instead:
 unity_gpu
 ```
 
-Wait for the allocation. Unity's interactive setup puts you in a shell on the allocated node. Record the hostname and job ID, then enter the analysis directory configured in `.bashrc`:
+Wait for the allocation. Unity's interactive setup puts you in a shell on the allocated node. If that shell has not loaded your configuration, run `source ~/.bashrc` there. Record the hostname and job ID, then enter your existing analysis checkout under the work area configured in `.bashrc`. Replace `PROJECT_NAME` with its directory name throughout this chapter:
 
 ```bash
 hostname -f
 printf 'Job: %s\n' "$SLURM_JOB_ID"
-cd "$ATLAS_WORKDIR"
-printf 'Project folder: %s\n' "$ATLAS_WORKDIR"
+cd "$ATLAS_WORKDIR/PROJECT_NAME"
+printf 'Project folder: %s\n' "$(pwd -P)"
 ```
 
-If the allocated shell has not loaded your configuration, run `source ~/.bashrc` there. Keep this allocation shell open. A `tmux` session on the login node, started before `salloc`, can protect it from a local network interruption; it does not extend the job's time limit.
+Keep this allocation shell open. To protect it from a local network interruption, follow the [environment chapter's `tmux` instructions](../setting-up-environment/#sessions), starting `tmux` on the login node before requesting the allocation. It does not extend the job's time limit.
 
 The examples below use **job `123456`** and **`cpu001.unity.rc.umass.edu`** as placeholders. Substitute the values from your allocation. Refresh them every time you start a new job.
 
@@ -81,6 +77,8 @@ The examples below use **job `123456`** and **`cpu001.unity.rc.umass.edu`** as p
 ```bash
 srun --overlap --pty --jobid=123456 /bin/bash
 ```
+
+For a self-contained Pixi project that runs on Ubuntu, follow [Using Pixi](../using-pixi/#projects) to install its environment in this allocated shell. Install Microsoft's **Python** extension on the remote target and use **Python: Select Interpreter** to select the project's Pixi Python. If it is not detected, enter the path printed by `pixi run python -c 'import sys; print(sys.executable)'` from the project directory. See [Pixi's VS Code integration](https://pixi.prefix.dev/latest/integration/editor/vscode/) for details. The ATLAS release workflow below uses the Python selected by `asetup` instead.
 
 ### Enter EL9 and select ATLAS software {#enter-el9}
 
@@ -97,18 +95,19 @@ For a GPU session, use the helper **instead**. It loads Apptainer, enables `--nv
 atlas_gpu
 ```
 
-These helpers are defined in the environment chapter. Unity already exposes `/work` in the tested ALRB setup, so an additional `-m /work` is not normally needed.
+These helpers are defined in the environment chapter. Unity normally exposes `/work` through ALRB, so an additional `-m /work` is not needed for the standard workflow. Use the [mount guidance](../setting-up-environment/#container) if a required filesystem is missing.
 
 Now, **inside EL9**, select the exact release used by your analysis:
 
 ```bash
 cat /etc/os-release
-cd "/work/${USER_PI}/${USER}/atlas"
-asetup AnalysisBase,REPLACE_WITH_YOUR_TESTED_VERSION
+cd "$ATLAS_WORKDIR/PROJECT_NAME"
+read -r -p 'ATLAS project,version: ' ATLAS_RELEASE
+asetup "$ATLAS_RELEASE"
 python -c 'import sys, ROOT; print(sys.executable); print(ROOT.gROOT.GetVersion())'
 ```
 
-Use your actual project/release instead of the placeholder. If you have a compiled analysis package, also source its generated setup script after `asetup`, for example `source /absolute/path/to/build/PLATFORM/setup.sh`. On a GPU allocation, check `nvidia-smi`; if the utility is not on `PATH`, try `/usr/bin/nvidia-smi`, as described in the [GPU troubleshooting notes](../setting-up-environment/#troubleshooting).
+Enter the same exact `project,version` selected in [Load analysis software](../setting-up-environment/#software). If you have a compiled analysis package, also source its generated setup script after `asetup`, for example `source /absolute/path/to/build/PLATFORM/setup.sh`. On a GPU allocation, check `nvidia-smi`; if the utility is not on `PATH`, try `/usr/bin/nvidia-smi`, as described in the [GPU troubleshooting notes](../setting-up-environment/#troubleshooting).
 
 You can now run analysis commands in this terminal. **The VS Code backend is still on Ubuntu.** Selecting a Python binary on CVMFS does not by itself provide EL9 or the environment established by `asetup`. Continue with B or C for integrated execution.
 
@@ -116,7 +115,7 @@ You can now run analysis commands in this terminal. **The VS Code backend is sti
 
 ATLAS documents using SSH `RemoteCommand` to enter a container **before VS Code starts its backend**. The adaptation below selects your ATLAS release at that stage too. No SSH daemon inside the container is required.
 
-Start with a **CPU allocation**, with only one running job of yours on that node. Unity's SSH service must place the session in the allocation; the launcher's job check detects stale or ambiguous configuration but does not replace that site-level behavior. For GPU work, use method C initially: a new SSH session may have a different Slurm step/device view from the original GPU shell.
+Use a **CPU allocation**, with only one running job of yours on that node. Unity's SSH service must place the session in the allocation; the launcher's job check detects stale or ambiguous configuration but does not replace that site-level behavior. For GPU work, use method C: a new SSH session may have a different Slurm step/device view from the original GPU shell.
 
 ### Install the launchers
 
@@ -139,11 +138,12 @@ The [host launcher](../examples/vscode/atlas-vscode-ssh.sh) loads Apptainer and 
 
 First run the normal EL9 setup above once and record the **resolved EL9 container image path printed by ALRB**. Use that actual path, which may be a container directory on CVMFS, rather than guessing a container tag. Exit the container back to the **original CPU allocation's Ubuntu shell**, keeping the allocation alive.
 
-Fill in the image and release below. Set `ATLAS_VSCODE_BUILD_SETUP` to your absolute generated build setup path if needed, or leave it empty. This writes a private, allocation-specific configuration file:
+Fill in the image below and enter the same `project,version` again in the host shell: variables set inside the container do not propagate back to it. Set `ATLAS_VSCODE_BUILD_SETUP` to your absolute generated build setup path if needed, or leave it empty. This writes a private, allocation-specific configuration file:
 
 ```bash
 ATLAS_VSCODE_IMAGE='/cvmfs/REPLACE_WITH_THE_RESOLVED_EL9_IMAGE_PATH'
-ATLAS_VSCODE_RELEASE='AnalysisBase,REPLACE_WITH_YOUR_TESTED_VERSION'
+read -r -p 'ATLAS project,version: ' ATLAS_RELEASE
+ATLAS_VSCODE_RELEASE="$ATLAS_RELEASE"
 ATLAS_VSCODE_BUILD_SETUP=''
 ATLAS_VSCODE_CONFIG="$ATLAS_WORKDIR/vscode-job-${SLURM_JOB_ID}.sh"
 (
@@ -209,8 +209,8 @@ Use the **original compute shell created by your allocation**, especially for a 
 Inside that configured EL9 shell, install the standalone CLI in your writable work directory. The download below is for **x86-64** nodes:
 
 ```bash
-cd "/work/${USER_PI}/${USER}/atlas"
-VSCODE_ROOT="$PWD/.vscode-atlas"
+cd "$ATLAS_WORKDIR/PROJECT_NAME"
+VSCODE_ROOT="$ATLAS_WORKDIR/.vscode-atlas"
 install -d -m 700 "$VSCODE_ROOT" "$VSCODE_ROOT/cli-bin"
 curl --fail --location \
   'https://code.visualstudio.com/sha/download?build=stable&os=cli-alpine-x64' \
@@ -322,16 +322,20 @@ For a browser interface with a project-managed Pixi environment, follow the comp
 If you only need notebooks, a **local VS Code window** can connect to a **Jupyter server started inside EL9**. Allocate a compute node and enter the configured container as above. This requires a working `jupyter` and `ipykernel` in that environment. After `asetup`, start:
 
 ```bash
-jupyter lab --no-browser --ip=127.0.0.1 --port=8888
+jupyter lab --no-browser --ip=127.0.0.1 --port=8888 \
+  --ServerApp.port_retries=0
 ```
 
 Keep its authentication enabled. In a **local terminal**, forward that port through the allocated node, using the actual hostname:
 
 ```bash
-ssh -N -L 8888:127.0.0.1:8888 cpu001.unity.rc.umass.edu
+ssh -N -o ExitOnForwardFailure=yes \
+  -L 127.0.0.1:8888:127.0.0.1:8888 cpu001.unity.rc.umass.edu
 ```
 
-In a **local VS Code window**, install Microsoft's **Jupyter** extension locally and open your notebook. Choose **Select Kernel → Select Another Kernel… → Existing Jupyter Server**, and enter the authenticated `http://127.0.0.1:8888/...` URL printed by Jupyter, including its token. If Jupyter selected another port, forward that actual port. This explicit local-window arrangement makes the local port forwarding unambiguous. The notebook file is opened and saved locally; code executes remotely, and input/output paths in that code refer to Unity storage. Keep both the Jupyter process and SSH forward alive. This provides notebook/cell execution, but does not move ordinary Python Run/F5 or language services into EL9.
+The fixed-port and loopback settings match [Using JupyterLab](../using-jupyterlab/#connect), which also explains choosing another port and reconnecting. If port 8888 is occupied on the node, choose another server port and update the tunnel's remote port.
+
+In a **local VS Code window**, install Microsoft's **Jupyter** extension locally and open your notebook. Choose **Select Kernel → Select Another Kernel… → Existing Jupyter Server**, and enter the authenticated `http://127.0.0.1:8888/...` URL printed by Jupyter, including its token. Select the ATLAS kernel and run the Python/ROOT check above in a cell. The notebook file is opened and saved locally; code executes remotely, and input/output paths in that code refer to Unity storage. Keep both the Jupyter process and SSH forward alive. This provides notebook/cell execution, but does not move ordinary Python Run/F5 or language services into EL9.
 
 ## End a session and troubleshoot
 
@@ -344,15 +348,13 @@ When changing ATLAS releases, stop the previous backend and reconnect after sett
 | Compute-node SSH is rejected | The allocation must still be running, and the hostname, username, key, and `ProxyJump` must match it. |
 | Terminal is EL9 but Run/F5 cannot import ROOT | Method A changes only the terminal. With B/C, check the selected interpreter and whether an older backend or startup file replaced the environment. |
 | RemoteCommand bootstrap hangs or fails | Test the SSH alias in a terminal, inspect Remote - SSH output, and check that startup files print no extra stdout. Use the supplied stdin-preserving launcher. |
-| Launcher rejects the saved job | Recreate the configuration for the current node/job; the CPU prototype expects exactly one running job of yours on that node. |
+| Launcher rejects the saved job | Recreate the configuration for the current node/job; the CPU launcher expects exactly one running job of yours on that node. |
 | Reconnect reaches an old environment | Stop the old backend and use the allocation-specific server/state paths. |
 | Notebook import fails while Run works | Select the notebook kernel separately; check its Python path and compatible `ipykernel`. |
 | Tunnel cannot sign in or connect | Check the device-login identity, outbound service access, and that the allocation and foreground CLI are still alive. |
 | GPU command or framework fails | Use `--nv` and the original allocated GPU shell. Confirm Slurm's device selection with the intended framework; `nvidia-smi` alone does not validate framework compatibility or assigned-device mapping. |
 
-For the first Unity validation, record the exact release, node, container image, and VS Code version. Test **Run**, **F5**, **a notebook cell**, and **disconnect/reconnect**. For GPU work, also run a small operation in the intended CUDA framework and confirm it uses the Slurm-assigned device. This distinguishes a working terminal from a working integrated development environment.
-
-## References
+## References {#references}
 
 - Unity: [SSH configuration](https://docs.unity.rc.umass.edu/documentation/connecting/ssh/), [VS Code](https://docs.unity.rc.umass.edu/documentation/connecting/vscode/), [interactive jobs](https://docs.unity.rc.umass.edu/documentation/jobs/salloc/), and [FAQ](https://docs.unity.rc.umass.edu/documentation/help/faq/).
 - ATLAS: [VS Code remote usage with SSH](https://atlas-software.docs.cern.ch/athena/ide/ssh/) and [Python in VS Code](https://atlas-software.docs.cern.ch/athena/ide/python/).
@@ -361,4 +363,4 @@ For the first Unity validation, record the exact release, node, container image,
 - DCCN: [VS Code on an HPC cluster](https://hpc.dccn.nl/docs/cluster_howto/ide-vscode.html), including a tunnel launched inside a Singularity container.
 - Slurm: [SSH adoption into a job](https://slurm.schedmd.com/pam_slurm_adopt.html) and [GPU resource management](https://slurm.schedmd.com/gres.html).
 
-Reviewed 8 November 2026. The canonical ATLAS pages were inaccessible from the research environment; their CERN-hosted mirrors were used to check the [SSH](https://shahzad.web.cern.ch/shahzad/atlas-software-docs/athena/ide/ssh/) and [Python](https://shahzad.web.cern.ch/shahzad/atlas-software-docs/athena/ide/python/) guidance. The Unity adaptations remain to be tested as noted above.
+**Next:** [Using JupyterLab](../using-jupyterlab/) runs notebooks from your own Pixi environment through a browser.

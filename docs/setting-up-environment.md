@@ -1,7 +1,7 @@
 Use a Slurm allocation for your work, then start an EL9 container on the allocated compute node. Inside it, ATLAS software is available through CVMFS without a local installation.
 
 ::: {.callout}
-**Before you begin:** you need a Unity account, access to a group work directory, and a Bash shell. CVMFS must be accessible on the **compute node**, not just the login node. Rafael has tested this interactive recipe successfully on Unity.
+**Before you begin:** you need a Unity account, access to a group work directory, and a Bash shell. CVMFS must be accessible on the **compute node**, not just the login node.
 :::
 
 ## 1. Connect to Unity {#connect}
@@ -9,15 +9,15 @@ Use a Slurm allocation for your work, then start an EL9 container on the allocat
 From your own computer, connect using your Unity username:
 
 ```bash
-# Your computer — replace YOUR_UNITY_USERNAME.
-ssh YOUR_UNITY_USERNAME@login.unityhpc.org
+# Your computer — replace YOUR_USERNAME with your Unity username.
+ssh YOUR_USERNAME@login.unityhpc.org
 ```
 
 Follow Unity's [SSH guide](https://docs.unity.rc.umass.edu/documentation/connecting/ssh/) for account and SSH-key setup. Use the login node to prepare and submit work; run builds, event processing, and training on allocated compute nodes.
 
 ## 2. Create your working directories once {#directories}
 
-On the **Unity login node**, set `USER_PI` to your PI's existing Unity directory name. For example, Rafael's group uses `rclsa_umass_edu`; substitute your own PI directory for `YOUR_PI`. `$USER` is already your Unity username after logging in, so leave it as a variable.
+On the **Unity login node**, set `USER_PI` to your PI's existing Unity directory name, for example `rclsa_umass_edu`. Substitute your own PI directory for `YOUR_PI`. `$USER` is already your Unity username after logging in, so leave it as a variable.
 
 ```bash
 # Unity login node — replace YOUR_PI, for example with rclsa_umass_edu.
@@ -32,6 +32,8 @@ mkdir -p "/work/${USER_PI}/${USER}/atlas"
 **Create these directories only once**, not for every allocation or container. `mkdir -p` also succeeds if they already exist. Your PI's storage allocation must already be provisioned and accessible; these commands create your own subdirectories, not a new storage allocation.
 
 Add your edited `export USER_PI=...` line to your existing `~/.bashrc` so the choice persists across sessions. The complete [shell configuration below](#bashrc) includes this line and defines `ATLAS_WORKDIR="/work/${USER_PI}/${USER}/atlas"`; keep a single definition of each when merging it. Directory creation stays outside `.bashrc`.
+
+`ATLAS_WORKDIR` is your common analysis work area. Later chapters use `"$ATLAS_WORKDIR/PROJECT_NAME"` for an individual analysis checkout; replace `PROJECT_NAME` with that repository's directory name.
 
 Throughout the manual, `/work/${USER_PI}/${USER}` is your personal work area and `/project/${USER_PI}/${USER}` is your personal area in your PI's project allocation. Use `/work` or Unity's [scratch service](https://docs.unity.rc.umass.edu/documentation/managing-files/hpc-workspace/) for active job I/O. Consult the [storage guide](https://docs.unity.rc.umass.edu/documentation/cluster_specs/storage/) for quotas and retention.
 
@@ -121,7 +123,7 @@ For a CPU session, run:
 setupATLAS -c el9
 ```
 
-`-c el9` selects the ATLAS EL9 environment. On the tested Unity setup, `/work` is already visible inside the container without `-m /work`, so no explicit mount is needed for the standard workflow. File permissions still apply.
+`-c el9` selects the ATLAS EL9 environment. Unity exposes `/work` inside the container without `-m /work`, so no explicit mount is needed for the standard workflow. File permissions still apply.
 
 Use `-m` only when a directory you need is **not already visible** inside the container. For example, if `/scratch` is missing, leave the container and relaunch with `setupATLAS -c el9 -m /scratch`. Check the paths you need after entering; automatic mounts can depend on the launcher and site configuration. `setupATLAS -c -h` describes additional mount options.
 
@@ -137,7 +139,7 @@ type asetup
 ls /cvmfs/atlas.cern.ch/repo
 ls /work
 printf 'PI: %s\nUser: %s\n' "$USER_PI" "$USER"
-cd "/work/${USER_PI}/${USER}/atlas"
+cd "$ATLAS_WORKDIR"
 ```
 
 Expect an EL9 distribution and `x86_64`. A container shares the host kernel, so `uname -r` is **not** a test of its Linux distribution. The launcher may initially map the working directory to `/srv` and use a different home path. The explicit `cd` returns to the shared analysis directory. The `APPTAINERENV_` exports above preserve `USER_PI`, `USER`, and `ATLAS_WORKDIR` inside Apptainer; other host variables need not be preserved. If you need project files, also check that `/project/${USER_PI}/${USER}` is visible, using the mount guidance above if needed.
@@ -171,17 +173,19 @@ This checks a basic ROOT/PyROOT environment. For reproducible work, select an ex
 
 ### AnalysisBase, AthAnalysis, or Athena
 
-For an analysis release, begin in a **fresh EL9 session** and select the exact project and version required by your analysis, following the ATLAS [release setup guide](https://atlas-software.docs.cern.ch/analysis/analysis_tutorial/AnalysisSWTutorial/release_setup/). For example, this prompts for a version instead of silently choosing a moving default:
+For an analysis release, begin in a **fresh EL9 session** and select the exact project and version required by your analysis, following the ATLAS [release setup guide](https://atlas-software.docs.cern.ch/analysis/analysis_tutorial/AnalysisSWTutorial/release_setup/). Throughout this manual, `ATLAS_RELEASE` means the complete `project,version` pair: for example, `AnalysisBase` followed by a comma and your exact release number. Enter that pair at the prompt:
 
 ```bash
 # Inside a fresh EL9 container, in your analysis directory
-read -r -p 'AnalysisBase release required by your analysis: ' ATLAS_RELEASE
-if [[ -n "$ATLAS_RELEASE" ]]; then
-    asetup "AnalysisBase,${ATLAS_RELEASE}"
+read -r -p 'ATLAS project,version: ' ATLAS_RELEASE
+if [[ "$ATLAS_RELEASE" == *,* ]]; then
+    asetup "$ATLAS_RELEASE"
+else
+    echo 'Enter a project and exact version, separated by a comma.'
 fi
 ```
 
-Use `AthAnalysis` or `Athena` in place of `AnalysisBase` when that is what your workflow requires. Check the setup output for a successful release selection and an EL9-compatible platform. Do not guess a release number from this guide; the analysis determines the supported release.
+Use `AthAnalysis` or `Athena` in place of `AnalysisBase` when that is what your workflow requires. Check the setup output for a successful release selection and an EL9-compatible platform. Use an exact version rather than `latest`; the analysis determines the supported release. `ATLAS_RELEASE` is a session variable, so set it again when starting a new session or submitting from a different shell.
 
 After a successful setup:
 
@@ -205,7 +209,7 @@ nvidia-smi
 printf 'CUDA_VISIBLE_DEVICES=%s\n' "${CUDA_VISIBLE_DEVICES:-<unset>}"
 ```
 
-Pass **`--nv` explicitly to the container runtime through `ALRB_CONT_CMDOPTS`**. This exposes the host's NVIDIA utilities and driver libraries inside EL9. Rafael confirmed that this launch sequence makes `nvidia-smi` work on Unity after it was missing with the earlier recipe. It preserves any existing container options and forwards Slurm's device selection:
+Pass **`--nv` explicitly to the container runtime through `ALRB_CONT_CMDOPTS`**. This exposes the host's NVIDIA utilities and driver libraries inside EL9. The following sequence preserves any existing container options and forwards Slurm's device selection:
 
 ```bash
 # Ubuntu GPU compute node; module load apptainer/latest was done above.
@@ -231,7 +235,7 @@ nvidia-smi
 printf 'CUDA_VISIBLE_DEVICES=%s\n' "${CUDA_VISIBLE_DEVICES:-<unset>}"
 ```
 
-Check the launcher's output for `apptainer ... --nv ...`. `APPTAINER_NV=true` is Apptainer's environment-variable equivalent, but this guide uses the explicit option that was tested successfully through the ATLAS launcher on Unity. No manual `PATH` change was needed in that test.
+Check the launcher's output for `apptainer ... --nv ...`. This guide passes the option explicitly through the ATLAS launcher; `APPTAINER_NV=true` is Apptainer's environment-variable equivalent.
 
 If `nvidia-smi` is still missing, try `/usr/bin/nvidia-smi` inside the container. If the full path works but the bare command does not, inspect `PATH`. If the file is absent, check the container launch line and any mount warnings; changing `PATH` cannot expose an unmounted executable. Confirm that `nvidia-smi` works on the same GPU node outside the container first. See the [Apptainer GPU documentation](https://apptainer.org/docs/user/latest/gpu.html) for runtime details.
 
@@ -332,4 +336,3 @@ For a session that survives an SSH disconnect, start `tmux new -s atlas` **on th
 
 **Next:** [Submitting jobs with Slurm](../submitting-jobs/) recreates this environment automatically on a batch worker.
 
-Documentation reviewed: **7 November 2026**. Rafael reported a successful test of the interactive recipe, including **`/work` visibility without an explicit mount**, and confirmed **`nvidia-smi` works inside EL9 with explicit `--nv` through `ALRB_CONT_CMDOPTS`**. The exact node, release, and GPU framework were not recorded; check those for your own analysis.

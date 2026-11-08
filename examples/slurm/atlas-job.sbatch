@@ -53,7 +53,7 @@ printf 'Job %s on %s; release %s; output %s\n' \
 cd "$unity_atlas_run_dir" || exit 1
 
 # -r runs the payload inside the container and then leaves the container.
-# /work is already visible on the tested Unity setup; no -m is needed.
+# Unity exposes /work inside the container; no -m is needed for it.
 source "$ATLAS_LOCAL_ROOT_BASE/user/atlasLocalSetup.sh" \
     -c el9 -r "$unity_atlas_command"
 unity_atlas_status=$?

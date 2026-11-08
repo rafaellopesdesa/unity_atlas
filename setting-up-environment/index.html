@@ -22,7 +22,7 @@
     <p class="nav-label">Documentation</p>
     <nav class="chapters" aria-label="Chapters"><a href="../index.html">Overview</a><a aria-current="page" href="index.html">Setting up the environment</a><a href="../submitting-jobs/index.html">Submitting jobs with Slurm</a><a href="../using-pixi/index.html">Using Pixi</a><a href="../using-vscode/index.html">Using VS Code</a><a href="../using-jupyterlab/index.html">Using JupyterLab</a><a href="../codex-agents/index.html">Codex Agents</a></nav>
     <div class="sidebar-note"><span class="status-dot"></span> Growing guide<p>Environment setup, batch jobs, Pixi, VS Code, JupyterLab, and Codex Agents. More analysis workflows will follow.</p></div>
-    <a class="sidebar-source" href="https://github.com/rafaellopesdesa/unity_atlas/issues">Suggest an improvement ↗</a>
+    <a class="sidebar-source" href="https://github.com/rafaellopesdesa/unity_atlas/issues">Report a problem ↗</a>
   </aside>
   <main id="main" tabindex="-1">
     <div class="breadcrumb">Documentation <span>/</span> Setting up the environment</div>
@@ -30,15 +30,15 @@
     <h1>Setting up the environment</h1>
     <article><p>Use a Slurm allocation for your work, then start an EL9 container on the allocated compute node. Inside it, ATLAS software is available through CVMFS without a local installation.</p>
 <div class="callout">
-<p><strong>Before you begin:</strong> you need a Unity account, access to a group work directory, and a Bash shell. CVMFS must be accessible on the <strong>compute node</strong>, not just the login node. Rafael has tested this interactive recipe successfully on Unity.</p>
+<p><strong>Before you begin:</strong> you need a Unity account, access to a group work directory, and a Bash shell. CVMFS must be accessible on the <strong>compute node</strong>, not just the login node.</p>
 </div>
 <h2 id="connect">1. Connect to Unity</h2>
 <p>From your own computer, connect using your Unity username:</p>
-<pre class="bash"><code># Your computer — replace YOUR_UNITY_USERNAME.
-ssh YOUR_UNITY_USERNAME@login.unityhpc.org</code></pre>
+<pre class="bash"><code># Your computer — replace YOUR_USERNAME with your Unity username.
+ssh YOUR_USERNAME@login.unityhpc.org</code></pre>
 <p>Follow Unity's <a href="https://docs.unity.rc.umass.edu/documentation/connecting/ssh/">SSH guide</a> for account and SSH-key setup. Use the login node to prepare and submit work; run builds, event processing, and training on allocated compute nodes.</p>
 <h2 id="directories">2. Create your working directories once</h2>
-<p>On the <strong>Unity login node</strong>, set <code>USER_PI</code> to your PI's existing Unity directory name. For example, Rafael's group uses <code>rclsa_umass_edu</code>; substitute your own PI directory for <code>YOUR_PI</code>. <code>$USER</code> is already your Unity username after logging in, so leave it as a variable.</p>
+<p>On the <strong>Unity login node</strong>, set <code>USER_PI</code> to your PI's existing Unity directory name, for example <code>rclsa_umass_edu</code>. Substitute your own PI directory for <code>YOUR_PI</code>. <code>$USER</code> is already your Unity username after logging in, so leave it as a variable.</p>
 <pre class="bash"><code># Unity login node — replace YOUR_PI, for example with rclsa_umass_edu.
 export USER_PI=YOUR_PI
 mkdir -p &quot;/work/${USER_PI}/${USER}&quot;
@@ -48,6 +48,7 @@ mkdir -p &quot;/project/${USER_PI}/${USER}&quot;
 mkdir -p &quot;/work/${USER_PI}/${USER}/atlas&quot;</code></pre>
 <p><strong>Create these directories only once</strong>, not for every allocation or container. <code>mkdir -p</code> also succeeds if they already exist. Your PI's storage allocation must already be provisioned and accessible; these commands create your own subdirectories, not a new storage allocation.</p>
 <p>Add your edited <code>export USER_PI=...</code> line to your existing <code>~/.bashrc</code> so the choice persists across sessions. The complete <a href="#bashrc">shell configuration below</a> includes this line and defines <code>ATLAS_WORKDIR="/work/${USER_PI}/${USER}/atlas"</code>; keep a single definition of each when merging it. Directory creation stays outside <code>.bashrc</code>.</p>
+<p><code>ATLAS_WORKDIR</code> is your common analysis work area. Later chapters use <code>"$ATLAS_WORKDIR/PROJECT_NAME"</code> for an individual analysis checkout; replace <code>PROJECT_NAME</code> with that repository's directory name.</p>
 <p>Throughout the manual, <code>/work/${USER_PI}/${USER}</code> is your personal work area and <code>/project/${USER_PI}/${USER}</code> is your personal area in your PI's project allocation. Use <code>/work</code> or Unity's <a href="https://docs.unity.rc.umass.edu/documentation/managing-files/hpc-workspace/">scratch service</a> for active job I/O. Consult the <a href="https://docs.unity.rc.umass.edu/documentation/cluster_specs/storage/">storage guide</a> for quotas and retention.</p>
 <h2 id="allocate">3. Request compute resources</h2>
 <p>Choose <strong>one</strong> of the following commands on the login node. Adjust the resource request to your workload.</p>
@@ -127,7 +128,7 @@ pwd -P</code></pre>
 <p>For a CPU session, run:</p>
 <pre class="bash"><code># Ubuntu compute node, in your analysis directory
 setupATLAS -c el9</code></pre>
-<p><code>-c el9</code> selects the ATLAS EL9 environment. On the tested Unity setup, <code>/work</code> is already visible inside the container without <code>-m /work</code>, so no explicit mount is needed for the standard workflow. File permissions still apply.</p>
+<p><code>-c el9</code> selects the ATLAS EL9 environment. Unity exposes <code>/work</code> inside the container without <code>-m /work</code>, so no explicit mount is needed for the standard workflow. File permissions still apply.</p>
 <p>Use <code>-m</code> only when a directory you need is <strong>not already visible</strong> inside the container. For example, if <code>/scratch</code> is missing, leave the container and relaunch with <code>setupATLAS -c el9 -m /scratch</code>. Check the paths you need after entering; automatic mounts can depend on the launcher and site configuration. <code>setupATLAS -c -h</code> describes additional mount options.</p>
 <p>The launcher initializes the ATLAS user interface in the container. Check it before selecting a release:</p>
 <pre class="bash"><code># Inside the EL9 container
@@ -139,7 +140,7 @@ type asetup
 ls /cvmfs/atlas.cern.ch/repo
 ls /work
 printf &#39;PI: %s\nUser: %s\n&#39; &quot;$USER_PI&quot; &quot;$USER&quot;
-cd &quot;/work/${USER_PI}/${USER}/atlas&quot;</code></pre>
+cd &quot;$ATLAS_WORKDIR&quot;</code></pre>
 <p>Expect an EL9 distribution and <code>x86_64</code>. A container shares the host kernel, so <code>uname -r</code> is <strong>not</strong> a test of its Linux distribution. The launcher may initially map the working directory to <code>/srv</code> and use a different home path. The explicit <code>cd</code> returns to the shared analysis directory. The <code>APPTAINERENV_</code> exports above preserve <code>USER_PI</code>, <code>USER</code>, and <code>ATLAS_WORKDIR</code> inside Apptainer; other host variables need not be preserved. If you need project files, also check that <code>/project/${USER_PI}/${USER}</code> is visible, using the mount guidance above if needed.</p>
 <p>If <code>lsetup</code> is unavailable despite a successful container launch, initialize the interface explicitly <strong>inside</strong> that container:</p>
 <pre class="bash"><code>export ATLAS_LOCAL_ROOT_BASE=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase
@@ -156,13 +157,15 @@ root-config --version
 python -c &#39;import ROOT; print(ROOT.gROOT.GetVersion())&#39;</code></pre>
 <p>This checks a basic ROOT/PyROOT environment. For reproducible work, select an explicit tool version using the choices shown by <code>lsetup "root --help"</code>, and record it with your analysis.</p>
 <h3 id="analysisbase-athanalysis-or-athena">AnalysisBase, AthAnalysis, or Athena</h3>
-<p>For an analysis release, begin in a <strong>fresh EL9 session</strong> and select the exact project and version required by your analysis, following the ATLAS <a href="https://atlas-software.docs.cern.ch/analysis/analysis_tutorial/AnalysisSWTutorial/release_setup/">release setup guide</a>. For example, this prompts for a version instead of silently choosing a moving default:</p>
+<p>For an analysis release, begin in a <strong>fresh EL9 session</strong> and select the exact project and version required by your analysis, following the ATLAS <a href="https://atlas-software.docs.cern.ch/analysis/analysis_tutorial/AnalysisSWTutorial/release_setup/">release setup guide</a>. Throughout this manual, <code>ATLAS_RELEASE</code> means the complete <code>project,version</code> pair: for example, <code>AnalysisBase</code> followed by a comma and your exact release number. Enter that pair at the prompt:</p>
 <pre class="bash"><code># Inside a fresh EL9 container, in your analysis directory
-read -r -p &#39;AnalysisBase release required by your analysis: &#39; ATLAS_RELEASE
-if [[ -n &quot;$ATLAS_RELEASE&quot; ]]; then
-    asetup &quot;AnalysisBase,${ATLAS_RELEASE}&quot;
+read -r -p &#39;ATLAS project,version: &#39; ATLAS_RELEASE
+if [[ &quot;$ATLAS_RELEASE&quot; == *,* ]]; then
+    asetup &quot;$ATLAS_RELEASE&quot;
+else
+    echo &#39;Enter a project and exact version, separated by a comma.&#39;
 fi</code></pre>
-<p>Use <code>AthAnalysis</code> or <code>Athena</code> in place of <code>AnalysisBase</code> when that is what your workflow requires. Check the setup output for a successful release selection and an EL9-compatible platform. Do not guess a release number from this guide; the analysis determines the supported release.</p>
+<p>Use <code>AthAnalysis</code> or <code>Athena</code> in place of <code>AnalysisBase</code> when that is what your workflow requires. Check the setup output for a successful release selection and an EL9-compatible platform. Use an exact version rather than <code>latest</code>; the analysis determines the supported release. <code>ATLAS_RELEASE</code> is a session variable, so set it again when starting a new session or submitting from a different shell.</p>
 <p>After a successful setup:</p>
 <pre class="bash"><code>printf &#39;Project: %s\nVersion: %s\nPlatform: %s\n&#39; \
        &quot;$AtlasProject&quot; &quot;$AtlasVersion&quot; &quot;$BINARY_TAG&quot;
@@ -175,7 +178,7 @@ python -c &#39;import ROOT; print(ROOT.gROOT.GetVersion())&#39;</code></pre>
 <pre class="bash"><code># Ubuntu GPU compute node, after salloc and host preparation
 nvidia-smi
 printf &#39;CUDA_VISIBLE_DEVICES=%s\n&#39; &quot;${CUDA_VISIBLE_DEVICES:-&lt;unset&gt;}&quot;</code></pre>
-<p>Pass <strong><code>--nv</code> explicitly to the container runtime through <code>ALRB_CONT_CMDOPTS</code></strong>. This exposes the host's NVIDIA utilities and driver libraries inside EL9. Rafael confirmed that this launch sequence makes <code>nvidia-smi</code> work on Unity after it was missing with the earlier recipe. It preserves any existing container options and forwards Slurm's device selection:</p>
+<p>Pass <strong><code>--nv</code> explicitly to the container runtime through <code>ALRB_CONT_CMDOPTS</code></strong>. This exposes the host's NVIDIA utilities and driver libraries inside EL9. The following sequence preserves any existing container options and forwards Slurm's device selection:</p>
 <pre class="bash"><code># Ubuntu GPU compute node; module load apptainer/latest was done above.
 (
     export ALRB_CONT_CMDOPTS=&quot;${ALRB_CONT_CMDOPTS:+$ALRB_CONT_CMDOPTS }--nv&quot;
@@ -192,7 +195,7 @@ printf &#39;CUDA_VISIBLE_DEVICES=%s\n&#39; &quot;${CUDA_VISIBLE_DEVICES:-&lt;uns
 <pre class="bash"><code>command -v nvidia-smi
 nvidia-smi
 printf &#39;CUDA_VISIBLE_DEVICES=%s\n&#39; &quot;${CUDA_VISIBLE_DEVICES:-&lt;unset&gt;}&quot;</code></pre>
-<p>Check the launcher's output for <code>apptainer ... --nv ...</code>. <code>APPTAINER_NV=true</code> is Apptainer's environment-variable equivalent, but this guide uses the explicit option that was tested successfully through the ATLAS launcher on Unity. No manual <code>PATH</code> change was needed in that test.</p>
+<p>Check the launcher's output for <code>apptainer ... --nv ...</code>. This guide passes the option explicitly through the ATLAS launcher; <code>APPTAINER_NV=true</code> is Apptainer's environment-variable equivalent.</p>
 <p>If <code>nvidia-smi</code> is still missing, try <code>/usr/bin/nvidia-smi</code> inside the container. If the full path works but the bare command does not, inspect <code>PATH</code>. If the file is absent, check the container launch line and any mount warnings; changing <code>PATH</code> cannot expose an unmounted executable. Confirm that <code>nvidia-smi</code> works on the same GPU node outside the container first. See the <a href="https://apptainer.org/docs/user/latest/gpu.html">Apptainer GPU documentation</a> for runtime details.</p>
 <p>GPU visibility does not install a CUDA-enabled analysis framework, or make ordinary ATLAS code use the GPU. Verify device visibility and compatibility with the framework you intend to use. Do not override Slurm's device selection or set it to <code>all</code>; <code>nvidia-smi</code> may enumerate more devices than your application is assigned.</p>
 <p>The next section puts this launch sequence in a reusable <code>.bashrc</code> function so you only need to type <code>atlas_gpu</code> on the allocated node.</p>
@@ -311,7 +314,6 @@ atlas_gpu</code></pre>
 <li><a href="https://apptainer.org/docs/user/latest/gpu.html">Apptainer GPU support</a> and <a href="https://apptainer.org/docs/user/latest/appendix.html">environment-variable reference</a>.</li>
 </ul>
 <p><strong>Next:</strong> <a href="../submitting-jobs/">Submitting jobs with Slurm</a> recreates this environment automatically on a batch worker.</p>
-<p>Documentation reviewed: <strong>7 November 2026</strong>. Rafael reported a successful test of the interactive recipe, including <strong><code>/work</code> visibility without an explicit mount</strong>, and confirmed <strong><code>nvidia-smi</code> works inside EL9 with explicit <code>--nv</code> through <code>ALRB_CONT_CMDOPTS</code></strong>. The exact node, release, and GPU framework were not recorded; check those for your own analysis.</p>
 </article>
     <footer><span>ATLAS Analysis on Unity</span><a href="https://github.com/rafaellopesdesa/unity_atlas/blob/main/docs/setting-up-environment.md">View page source ↗</a></footer>
   </main>

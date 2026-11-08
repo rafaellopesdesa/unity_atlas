@@ -2,10 +2,6 @@ Run JupyterLab from your own terminal session on a Unity compute node, then conn
 
 This chapter assumes you have completed [Setting up the environment](../setting-up-environment/), including the one-time directories and [`.bashrc` configuration](../setting-up-environment/#bashrc), and [installed Pixi](../using-pixi/#installation). It reuses `USER_PI`, Unity `$USER`, `ATLAS_WORKDIR`, and the allocation/container helpers.
 
-::: {.callout}
-**Validation status.** The commands follow the official Unity, Pixi, Jupyter, and OpenSSH documentation and have passed local syntax and link checks. This complete browser workflow still needs an end-to-end test on Unity.
-:::
-
 ## 1. Prepare the project and your SSH connection {#prepare}
 
 Use an existing project whose Pixi environment includes **`jupyterlab`, `ipykernel`, and the analysis packages** you need. For example, a HEP project might supply Uproot, Awkward Array, Hist, and plotting packages. The examples below use the project's default environment. See [Using Pixi](../using-pixi/#projects) for installing a supplied manifest, or the [Carpentries introduction](https://carpentries-incubator.github.io/pixi-introduction/) for creating or changing one.
@@ -50,7 +46,7 @@ unity_cpu
 
 The CPU helper requests four CPUs, 16 GB of memory, and two hours. Adjust the allocation to your workload using the [environment chapter](../setting-up-environment/#allocate). For a GPU session, use `unity_gpu` **instead of** `unity_cpu`.
 
-When the allocation starts, you should be in the **Ubuntu compute-node shell**. Record both values below; the compute hostname is the destination for your later SSH tunnel, while the job ID identifies the allocation:
+When the allocation starts, you should be in the **Ubuntu compute-node shell**. Use the [location checks in the environment chapter](../setting-up-environment/#allocate) if the shell remains on a login node. Record both values below; the compute hostname is the destination for your later SSH tunnel, while the job ID identifies the allocation:
 
 ```bash
 hostname -f
@@ -74,14 +70,14 @@ For an allocated NVIDIA GPU node, use `cd "$ATLAS_WORKDIR"` followed by `atlas_g
 
 Inside EL9, check `cat /etc/os-release`. This workflow uses Apptainer's normal shared host networking, so the SSH tunnel can reach Jupyter on the compute node's loopback address. Do not add a separate network namespace such as `--net` to this recipe.
 
-**Keep an independent Pixi analysis separate from `asetup`.** Start with a fresh shell/container before loading an ATLAS release. A Pixi Python environment does not automatically acquire the release's PyROOT or Athena bindings, and inherited ATLAS Python/library paths can conflict with its packages. If your notebook needs those bindings, it needs a compatible ATLAS kernel setup; see the [ATLAS notebook checks in Using VS Code](../using-vscode/#notebooks-and-the-python-interactive-window).
+**Keep an independent Pixi analysis separate from `asetup`**, as described in [Using Pixi alongside ATLAS](../using-pixi/#atlas). Start with a fresh shell/container before loading an ATLAS release. A Pixi Python environment does not automatically acquire the release's PyROOT or Athena bindings, and inherited ATLAS Python/library paths can conflict with its packages. If your notebook needs those bindings, it needs a compatible ATLAS kernel setup; see the [ATLAS notebook checks in Using VS Code](../using-vscode/#notebooks-and-the-python-interactive-window).
 
 ## 4. Install the environment and start JupyterLab {#start}
 
 In the chosen **compute-node environment** (Ubuntu or EL9), enter the existing project. Replace `PROJECT_NAME` with its directory name:
 
 ```bash
-cd "/work/${USER_PI}/${USER}/atlas/PROJECT_NAME"
+cd "$ATLAS_WORKDIR/PROJECT_NAME"
 
 # Restore the user-tool path if the container reset PATH.
 export PATH="$HOME/.pixi/bin:$PATH"
@@ -189,7 +185,7 @@ When finished, save your work, stop Jupyter with **Ctrl+C** in its terminal and 
 | A package was added but the notebook still uses the old state | Stop/restart the kernel after updating the environment; rerun the notebook cells. |
 | ATLAS bindings fail in Pixi Python | Follow a project-supported ATLAS kernel setup; EL9 alone does not make independent Python environments interchangeable. |
 
-## References and validation {#references}
+## References {#references}
 
 - Unity: [SSH](https://docs.unity.rc.umass.edu/documentation/connecting/ssh/), [compute-node SSH configuration](https://docs.unity.rc.umass.edu/documentation/connecting/vscode/), and [interactive jobs and tmux](https://docs.unity.rc.umass.edu/documentation/jobs/).
 - Pixi: [JupyterLab integration](https://pixi.prefix.dev/latest/integration/editor/jupyterlab/) and [running commands](https://pixi.prefix.dev/latest/reference/cli/pixi/run/).
@@ -197,7 +193,5 @@ When finished, save your work, stop Jupyter with **Ctrl+C** in its terminal and 
 - IPython: [kernel registration](https://ipython.readthedocs.io/en/stable/install/kernel_install.html).
 - OpenSSH: [`ssh` port forwarding](https://man.openbsd.org/ssh.1).
 - Apptainer: [network namespaces](https://apptainer.org/docs/user/latest/networking.html).
-
-Reviewed **8 November 2026**. Local checks cover rendered links and Bash/Python syntax. For the first Unity test, record the node, job ID, runtime (Ubuntu or EL9), Pixi/Jupyter versions, manifest and lock file, selected kernel path, successful imports, notebook save location, and reconnection result. No live Unity browser session was exercised here.
 
 **Next:** [Codex Agents](../codex-agents/) adds an agent with ATLAS software and authenticated dataset tools.

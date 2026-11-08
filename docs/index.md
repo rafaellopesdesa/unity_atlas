@@ -1,4 +1,4 @@
-UMass Unity provides the compute resources. CVMFS supplies the ATLAS software. An Enterprise Linux 9 container brings them together on Unity's Ubuntu hosts.
+UMass Unity provides the compute resources. CVMFS supplies the ATLAS software, and an Enterprise Linux 9 container provides the runtime for ATLAS releases on Unity's Ubuntu hosts. Pixi manages project dependencies and personal tools.
 
 This guide documents how to use Unity as an analysis facility for ATLAS, from an interactive shell to a reproducible analysis environment.
 
@@ -11,7 +11,7 @@ Create your work/project directories once, save `USER_PI` and the shell shortcut
 
 **[Submitting jobs with Slurm →](submitting-jobs/)**
 
-Turn the tested interactive environment into a batch job. Includes downloadable scripts, a PyROOT smoke test, resource requests, logs, and troubleshooting.
+Turn the interactive environment into a batch job. Includes downloadable scripts, a PyROOT smoke test, resource requests, logs, and troubleshooting.
 
 **[Using Pixi →](using-pixi/)**
 
@@ -38,9 +38,12 @@ Run Codex with your ATLAS release inside EL9. Install personal Rucio and AMI MCP
 | Slurm allocation | Reserve CPUs, memory, time, and optional GPUs on a compute node. |
 | Apptainer container | Provide the EL9 userspace required by the ATLAS release. |
 | CVMFS | Deliver centrally maintained software and container images. |
+| Pixi environment | Supply a project's own packages and command-line tools. |
 | Your work directory | Keep analysis code, builds, inputs, and outputs on writable Unity storage. |
 
-Start the container **after** the allocation has started. The container runs within that allocation; it does not reserve additional resources.
+Start the container **after** the allocation has started. The container runs within that allocation; it does not reserve additional resources. A self-contained Pixi project that supports Ubuntu can also run directly on the allocated host, as described in the Pixi and JupyterLab chapters.
+
+The environment chapter defines the directory settings and shell helpers used throughout this guide. The Pixi chapter supplies the package-management basics used by JupyterLab and Codex. Choose VS Code, JupyterLab, or Codex according to how you want to work; you do not need to start all three.
 
 ## About this guide
 
@@ -48,8 +51,4 @@ The first six chapters cover interactive environment setup, Slurm batch jobs, Pi
 
 The [Unity documentation](https://docs.unity.rc.umass.edu/documentation/) is the reference for cluster access, storage, and scheduling. The [ATLAS Software Documentation](https://atlas-software.docs.cern.ch/) is the reference for ATLAS software and analysis procedures.
 
-::: {.callout}
-**Validation status.** Rafael has tested the interactive environment recipe successfully on Unity, including access to `/work` without an explicit mount and `nvidia-smi` inside EL9 when launching with explicit `--nv`. The batch, Pixi, VS Code, JupyterLab, and Codex recipes have passed local checks and await end-to-end Unity tests; the Codex chapter lists the required authenticated checks.
-:::
-
-Found a problem or tested a setup? [Open an issue](https://github.com/rafaellopesdesa/unity_atlas/issues) with the relevant command, error, and compute-node hostname. Omit credentials and tokens.
+If an instruction does not work, [open an issue](https://github.com/rafaellopesdesa/unity_atlas/issues) with the page, command, error message, and compute-node hostname. Include the relevant software versions and whether you are on the Ubuntu host or inside EL9. Omit credentials, tokens, and private keys.

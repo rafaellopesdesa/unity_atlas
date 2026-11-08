@@ -2,10 +2,6 @@ Run Codex **inside the allocated EL9 container**, after selecting your ATLAS rel
 
 This workflow needs no facility-wide credential broker and no change to Unity login. You authenticate to Codex separately from ATLAS, create a short-lived VOMS proxy yourself, and let Codex start the MCP processes when needed.
 
-::: {.callout}
-**Validation status.** The underlying interactive EL9 setup has been tested on Unity. This Codex/MCP workflow has been reviewed against current upstream documentation and locally checked, but its package installation, Codex sandbox, grid authentication, and live MCP calls still need an end-to-end Unity test. Versions and validation details are listed below.
-:::
-
 ## 1. What runs where {#overview}
 
 | Component | Environment and purpose |
@@ -17,19 +13,19 @@ This workflow needs no facility-wide credential broker and no change to Unity lo
 
 You need a Unity account and group work directory, an OpenAI sign-in method enabled for Codex, an active ATLAS grid identity, and a valid grid certificate/private key. Your certificate identity must be registered for the ATLAS services you use. A Unity login, CERN password, or Codex login does not replace the grid credential.
 
-Complete [Setting up the environment](../setting-up-environment/) first, including the one-time creation of your work/project directories and the [`.bashrc` configuration](../setting-up-environment/#bashrc). This chapter uses its `USER_PI` and `ATLAS_WORKDIR` exports, your Unity `$USER`, and the `unity_cpu`, `unity_gpu`, `setupATLAS`, and `atlas_gpu` commands.
+Complete [Setting up the environment](../setting-up-environment/) first, including the one-time creation of your work/project directories and the [`.bashrc` configuration](../setting-up-environment/#bashrc), then [install Pixi](../using-pixi/#installation). This chapter uses your saved `USER_PI` and `ATLAS_WORKDIR`, Unity `$USER`, and the `unity_cpu`, `unity_gpu`, `setupATLAS`, and `atlas_gpu` commands.
 
 The compute node needs outbound connectivity to the sign-in/model service and ATLAS endpoints; installation additionally needs access to the package sources. This chapter starts with **dataset discovery and metadata queries**: Rucio MCP is explicitly launched in read-only mode.
 
 ## 2. Allocate resources and enter EL9 {#container}
 
-From your computer, connect to Unity:
+From your computer, connect using the [local SSH configuration from Using VS Code](../using-vscode/#configure-your-local-computer):
 
 ```bash
-ssh YOUR_UNITY_USERNAME@login.unityhpc.org
+ssh unity
 ```
 
-For a session that can survive an SSH disconnect, start `tmux new -s atlas-codex` on the login node first and record its hostname. Then request resources:
+For a session that can survive an SSH disconnect, start `tmux new -s atlas-codex` on the login node first and record its hostname, following the [session guidance](../setting-up-environment/#sessions). Then request resources:
 
 ```bash
 # Unity login node
@@ -45,7 +41,7 @@ cd "$ATLAS_WORKDIR"
 setupATLAS -c el9
 ```
 
-For GPU analysis, use this alternative sequence. `unity_gpu` requests one GPU with the same CPU, memory, and time limits; `atlas_gpu` loads Apptainer and supplies the tested GPU passthrough options:
+For GPU analysis, use this alternative sequence. `unity_gpu` requests one GPU with the same CPU, memory, and time limits; `atlas_gpu` loads Apptainer and supplies the GPU passthrough options from the [environment chapter](../setting-up-environment/#gpu):
 
 ```bash
 # Unity login node
@@ -56,13 +52,13 @@ cd "$ATLAS_WORKDIR"
 atlas_gpu
 ```
 
-`/work` is already visible in the tested Unity container setup, so no additional `-m /work` is normally required.
+`/work` is normally visible inside the container without an additional `-m /work`. If a required path is missing, follow the [mount guidance](../setting-up-environment/#container).
 
-Inside EL9, explicitly enter the project directory and check the environment:
+Inside EL9, explicitly enter your analysis work area and check the environment:
 
 ```bash
 # Inside EL9
-cd "/work/${USER_PI}/${USER}/atlas"
+cd "$ATLAS_WORKDIR"
 cat /etc/os-release
 uname -m
 printf 'Container home: %s\n' "$HOME"
@@ -80,7 +76,7 @@ export PATH="$HOME/.local/bin:$PATH"
 codex --version
 ```
 
-The installer currently uses `~/.local/bin`. Keep the installation in a persistent directory visible in future containers. If the launcher changes the apparent home directory, use the paths visible **inside EL9** consistently. Record `codex --version` with the first successful test.
+The installer currently uses `~/.local/bin`. Keep the installation in a persistent directory visible in future containers. If the launcher changes the apparent home directory, use the paths visible **inside EL9** consistently.
 
 Use device authentication on the remote node:
 
@@ -117,7 +113,7 @@ curl --fail --location \
 chmod u+x "$MCP_DIR/atlas-mcp-env.sh"
 ```
 
-The manifest uses conda-forge packages, including pyAMI through the AMI package's dependencies, and pins the MCP versions reviewed for this chapter:
+The manifest uses conda-forge packages, including pyAMI through the AMI package's dependencies, and pins the MCP versions:
 
 ```toml
 [workspace]
@@ -141,7 +137,7 @@ env -i HOME="$HOME" USER="$(id -un)" PATH=/usr/bin:/bin LANG=C.UTF-8 \
   "$HOME/.pixi/bin/pixi" install --manifest-path "$MCP_DIR/pixi.toml"
 ```
 
-Keep the generated `pixi.lock` with the manifest; the launcher uses `--locked` to prevent silent re-resolution at server startup. The lock file is generated on your installation, rather than supplied as an untested platform lock here. If home quota is limited, choose a private persistent work directory for `MCP_DIR` **before downloading and installing**. Use that directory in every subsequent `MCP_DIR` assignment and in the absolute launcher paths below.
+Keep the generated `pixi.lock` with the manifest; the launcher uses `--locked` to prevent silent re-resolution at server startup. Pixi generates this lock file during installation. If home quota is limited, choose a private persistent work directory for `MCP_DIR` **before downloading and installing**. Use that directory in every subsequent `MCP_DIR` assignment and in the absolute launcher paths below.
 
 The launcher starts Pixi with an explicit clean environment and forwards only the relevant proxy/account settings. This keeps ATLAS `PYTHONPATH`, `PYTHONHOME`, and `LD_LIBRARY_PATH` out of the MCP clients. Pixi then activates its own grid CA environment. Codex's parent shell remains unchanged. Do not add `pixi run --clean-env` to this launcher: that additional filter can remove the explicitly forwarded grid variables.
 
@@ -250,21 +246,30 @@ Codex will launch both commands itself. You do not need to keep two extra termin
 
 ## 7. Load ATLAS and start Codex {#start}
 
-In the same EL9 shell, select your analysis's exact release and source any generated local build setup:
+In the same EL9 shell, enter your existing analysis checkout. Replace `PROJECT_NAME` with its directory name, as in the Pixi and JupyterLab chapters. Select the full `project,version` release string described in [Load analysis software](../setting-up-environment/#software), then source any generated local build setup:
 
 ```bash
-cd "/work/${USER_PI}/${USER}/atlas"
-asetup AnalysisBase,REPLACE_WITH_YOUR_TESTED_VERSION
+cd "$ATLAS_WORKDIR/PROJECT_NAME"
+read -r -p 'ATLAS project,version: ' ATLAS_RELEASE
+if [[ "$ATLAS_RELEASE" == *,* ]]; then
+    asetup "$ATLAS_RELEASE"
+else
+    echo 'Enter a project and exact version, separated by a comma.'
+fi
 # If needed, use your real generated setup path:
 # source /absolute/path/to/build/PLATFORM/setup.sh
+```
 
+**Continue only after the release and build setup succeed.** Then start Codex from that project directory:
+
+```bash
 export PATH="$HOME/.local/bin:$PATH"
 export OMP_NUM_THREADS=4
 python -c 'import sys, ROOT; print(sys.executable); print(ROOT.gROOT.GetVersion())'
 codex --sandbox workspace-write --ask-for-approval on-request
 ```
 
-Use AthAnalysis or Athena if that is your project's release, and set the thread count to fit your actual allocation. Run `nvidia-smi` and a small framework-specific check before GPU work. **Start Codex only after the release and build setup succeed.** Starting it on Ubuntu and later entering a container in one subprocess will not relocate the running agent and its other processes.
+Set the thread count to fit your actual allocation. Run `nvidia-smi` and a small framework-specific check before GPU work. Starting Codex on Ubuntu and later entering a container in one subprocess will not relocate the running agent and its other processes.
 
 The default workspace is the directory where you start Codex. If a necessary output directory lies elsewhere, add that particular directory with `--add-dir /absolute/output/path`. Keep heavy builds, event loops, and training within the Slurm allocation.
 
@@ -290,7 +295,7 @@ A short `PROJECT_CONTEXT.md` is useful for changing details:
 # Project context
 
 - Goal: describe the analysis task.
-- Release: exact project, release, and platform tested here.
+- Release: exact project, release, and platform used by the analysis.
 - Build setup: absolute path, or none.
 - Input data: exact paths or dataset names; nominate a small test sample.
 - Outputs: the intended writable project/output directory.
@@ -332,11 +337,10 @@ Destroying a local proxy file removes that copy; it does not revoke every token 
 
 ### Short sequence for later sessions
 
-After obtaining resources and entering EL9, the recurring steps are:
+After obtaining resources and entering a fresh EL9 container, return to the same checkout and recreate the proxy:
 
 ```bash
-cd "/work/${USER_PI}/${USER}/atlas"
-export PATH="$HOME/.local/bin:$PATH"
+cd "$ATLAS_WORKDIR/PROJECT_NAME"
 MCP_DIR="$HOME/.local/share/unity-atlas-mcp"
 umask 077
 export ATLAS_PROXY_DIR="$(mktemp -d /tmp/atlas-proxy.XXXXXXXX)"
@@ -345,8 +349,18 @@ export RUCIO_ACCOUNT=YOUR_RUCIO_ACCOUNT
 "$MCP_DIR/atlas-mcp-env.sh" voms-proxy-init -voms atlas -valid 12:00 \
   -out "$X509_USER_PROXY"
 "$MCP_DIR/atlas-mcp-env.sh" voms-proxy-info -file "$X509_USER_PROXY" -timeleft
-asetup AnalysisBase,REPLACE_WITH_YOUR_TESTED_VERSION
+read -r -p 'ATLAS project,version: ' ATLAS_RELEASE
+if [[ "$ATLAS_RELEASE" == *,* ]]; then
+    asetup "$ATLAS_RELEASE"
+else
+    echo 'Enter a project and exact version, separated by a comma.'
+fi
 # Source your local build setup here if needed.
+```
+
+Once the proxy, release, and local build setup are ready, resume:
+
+```bash
 export PATH="$HOME/.local/bin:$PATH"
 export OMP_NUM_THREADS=4
 python -c 'import ROOT; print(ROOT.gROOT.GetVersion())'
@@ -376,7 +390,7 @@ For an expired-CRL error, refresh the isolated tool environment's certificate re
 "$MCP_DIR/atlas-mcp-env.sh" sh -c '"$X509_CERT_DIR/refresh_crls.sh"'
 ```
 
-## References and validation {#references}
+## References {#references}
 
 - OpenAI: [Codex CLI](https://developers.openai.com/codex/cli/), [authentication](https://developers.openai.com/codex/auth/), [MCP configuration](https://developers.openai.com/codex/mcp/), [configuration reference](https://developers.openai.com/codex/config-reference/), and [CLI commands](https://developers.openai.com/codex/cli/reference/).
 - OpenAI: [permissions](https://learn.chatgpt.com/docs/permissions), [sandbox requirements](https://learn.chatgpt.com/docs/sandboxing), and [AGENTS.md instructions](https://developers.openai.com/codex/guides/agents-md/).
@@ -385,4 +399,3 @@ For an expired-CRL error, refresh the isolated tool environment's certificate re
 - [Pixi installation](https://pixi.prefix.dev/latest/installation/) and [lock files](https://pixi.prefix.dev/latest/workspace/lock_file/).
 - Unity: [interactive jobs](https://docs.unity.rc.umass.edu/documentation/jobs/salloc/) and [SSH](https://docs.unity.rc.umass.edu/documentation/connecting/ssh/).
 
-Reviewed **8 November 2026**. The example manifest selects `rucio-mcp 0.10.0`, `ami-mcp 0.3.1`, and Python 3.11, based on their published package recipes. Local checks cover documentation links, Bash/TOML syntax, and the launcher's environment/stdio behavior. No real Codex sign-in, ATLAS credential, Rucio/AMI query, or Unity sandbox was exercised here. Record the actual Codex/Pixi versions, generated lock file, node, image, ATLAS release, and successful ROOT/Rucio/AMI checks when validating on Unity.

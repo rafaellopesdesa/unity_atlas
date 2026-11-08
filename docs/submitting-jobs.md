@@ -3,7 +3,7 @@ A batch job needs the same environment as an interactive session. Slurm starts t
 You submit with `sbatch` from a Unity login node. There is no preceding `salloc`, and you can disconnect after submission. The batch allocation and its wall-time limit are managed by Slurm.
 
 ::: {.callout}
-**Prerequisite:** first complete [Setting up the environment](../setting-up-environment/), including the one-time directories and [`.bashrc` settings](../setting-up-environment/#bashrc), and choose an exact ATLAS release that works for your analysis. This chapter uses your saved `USER_PI`, Unity `$USER`, and `ATLAS_WORKDIR`. Rafael has tested the interactive recipe on Unity. The batch example below has passed local syntax and simulated execution checks; its first end-to-end Unity run is still pending.
+**Prerequisite:** first complete [Setting up the environment](../setting-up-environment/), including the one-time directories and [`.bashrc` settings](../setting-up-environment/#bashrc), and choose an exact ATLAS release that works for your analysis. This chapter uses your saved `USER_PI`, Unity `$USER`, and `ATLAS_WORKDIR`.
 :::
 
 ## 1. Separate scheduling from the analysis {#workflow}
@@ -109,7 +109,7 @@ printf 'Job %s on %s; release %s; output %s\n' \
 cd "$unity_atlas_run_dir" || exit 1
 
 # -r runs the payload inside the container and then leaves the container.
-# /work is already visible on the tested Unity setup; no -m is needed.
+# Unity exposes /work inside the container; no -m is needed for it.
 source "$ATLAS_LOCAL_ROOT_BASE/user/atlasLocalSetup.sh" \
     -c el9 -r "$unity_atlas_command"
 unity_atlas_status=$?
@@ -117,9 +117,9 @@ printf 'Container command exited with status %s\n' "$unity_atlas_status"
 exit "$unity_atlas_status"
 ```
 
-The wrapper sources ATLASLocalRootBase explicitly instead of depending on the interactive `setupATLAS` alias in `.bashrc`. The `--export=NONE` directive avoids importing the submission shell's full environment; Slurm still supplies its job variables and may initialize the user's login environment. This is not a completely empty environment. The submission commands pass your saved `USER_PI` as an argument; the wrapper obtains your username from `SLURM_JOB_USER` and passes both into the payload. This keeps `/work/${USER_PI}/${USER}` and `/project/${USER_PI}/${USER}` usable in scripts without relying on `.bashrc` being read there. Keep software and container startup out of your shell startup files, as described in the first chapter.
+The wrapper sources ATLASLocalRootBase explicitly instead of depending on the interactive `setupATLAS` alias in `.bashrc`. The `--export=NONE` directive avoids importing the submission shell's full environment; Slurm still supplies its job variables and may initialize the user's login environment. This is not a completely empty environment. The submission commands pass your saved `USER_PI` as an argument; the wrapper obtains your username from `SLURM_JOB_USER` and passes both into the payload. This keeps `/work/${USER_PI}/${USER}` and `/project/${USER_PI}/${USER}` usable in scripts without relying on `.bashrc` being read there. Keep software and container startup out of your shell startup files, as described in the [shell-configuration section](../setting-up-environment/#bashrc).
 
-`/work` is already visible inside the tested Unity container, so the standard command needs no `-m /work`. If you use another filesystem that is missing inside EL9, add the corresponding `-m /actual/path` to the container launch.
+Unity exposes `/work` inside the container, so the standard command needs no `-m /work`. For another filesystem that is missing inside EL9, use the [mount guidance in the environment chapter](../setting-up-environment/#container) and add the corresponding `-m /actual/path` to the container launch.
 
 This is a **single-node, single-process** job. Slurm already runs the batch script on the worker, so it does not need an additional `srun` for this example. MPI and multiple simultaneous tasks require a different launch pattern. If you later introduce `srun`, note that this script uses `--export=NONE`: use `srun --export=ALL ...` when the step needs the environment you have prepared.
 
@@ -188,11 +188,11 @@ External setup scripts run before strict Bash error handling is enabled; their r
 
 ## 5. Submit and inspect the result {#submit}
 
-Use the **same project and exact release version** you successfully tested interactively, for example `AnalysisBase` followed by its version, separated by a comma. Do not enter a literal placeholder or a moving `latest` version. The prompt below runs on the login node; the batch job itself never prompts for input.
+Use the **same project and exact release version** selected in the [environment chapter](../setting-up-environment/#software), after confirming it works for your analysis. `ATLAS_RELEASE` has the same `project,version` format here. Do not enter a literal placeholder or a moving `latest` version. The prompt below sets it in your login shell; the batch job itself never prompts for input.
 
 ```bash
 # Still in the directory containing both scripts and logs/.
-read -r -p 'Tested ATLAS project,version: ' ATLAS_RELEASE
+read -r -p 'ATLAS project,version: ' ATLAS_RELEASE
 if [[ "$ATLAS_RELEASE" == *,* ]]; then
     if JOB_ID=$(sbatch --parsable atlas-job.sbatch "$ATLAS_RELEASE" "$USER_PI"); then
         JOB_ID=${JOB_ID%%;*}
@@ -237,11 +237,11 @@ scancel "$JOB_ID"
 
 Replace the Python block and the `test -s hist.root` check in `run-atlas.sh` with your analysis command and an appropriate output check. Keep the release setup and run-directory change. Relative output paths then land in `runs/JOB_ID/`; use absolute paths for shared inputs and code.
 
-For example, put your analysis code under your work directory and choose an input file from your project directory. `USER_PI` and `USER` are set by the supplied payload from the arguments passed by the worker script:
+For example, use the analysis checkout under your work area and choose an input file from your `/project` allocation. Replace `PROJECT_NAME` with your repository's directory name and use its actual script/input paths. `USER_PI` and `USER` are set by the supplied payload from the arguments passed by the worker script:
 
 ```bash
 # Inside run-atlas.sh, after asetup and set -euo pipefail.
-python -u "/work/${USER_PI}/${USER}/atlas/analysis/run.py" \
+python -u "/work/${USER_PI}/${USER}/atlas/PROJECT_NAME/run.py" \
     --input "/project/${USER_PI}/${USER}/input.root" \
     --output result.root
 test -s result.root
@@ -266,7 +266,7 @@ Keep directives at the top of the file, before shell commands. Slurm reads them 
 
 ### Request an NVIDIA GPU
 
-The same wrapper detects an allocated GPU through `SLURM_JOB_GPUS`, appends `--nv` to `ALRB_CONT_CMDOPTS`, and forwards Slurm's `CUDA_VISIBLE_DEVICES` selection when present. This uses the explicit passthrough option tested successfully in the [interactive GPU recipe](../setting-up-environment/#gpu). The batch script sets it itself; `atlas_gpu` remains the shortcut for interactive shells. Request the GPU at submission:
+The same wrapper detects an allocated GPU through `SLURM_JOB_GPUS`, appends `--nv` to `ALRB_CONT_CMDOPTS`, and forwards Slurm's `CUDA_VISIBLE_DEVICES` selection when present. This uses the same passthrough option as the [interactive GPU recipe](../setting-up-environment/#gpu). The batch script sets it itself; `atlas_gpu` remains the shortcut for interactive shells. Request the GPU at submission:
 
 ```bash
 sbatch --partition=gpu --gpus=1 --cpus-per-task=4 \
@@ -296,4 +296,5 @@ Add `nvidia-smi` after setup inside `run-atlas.sh` to inspect device visibility,
 - [Slurm sbatch](https://slurm.schedmd.com/sbatch.html), [sacct](https://slurm.schedmd.com/sacct.html), and [job exit codes](https://slurm.schedmd.com/job_exit_code.html).
 - [Apptainer NVIDIA GPU support](https://apptainer.org/docs/user/latest/gpu.html).
 
-Documentation reviewed: **7 November 2026**. Interactive Unity setup: **tested by Rafael**. This batch recipe: **local checks passed; end-to-end Unity test pending**.
+**Next:** [Using Pixi](../using-pixi/) covers personal tools and project-specific package environments.
+

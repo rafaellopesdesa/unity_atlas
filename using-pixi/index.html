@@ -22,14 +22,14 @@
     <p class="nav-label">Documentation</p>
     <nav class="chapters" aria-label="Chapters"><a href="../index.html">Overview</a><a href="../setting-up-environment/index.html">Setting up the environment</a><a href="../submitting-jobs/index.html">Submitting jobs with Slurm</a><a aria-current="page" href="index.html">Using Pixi</a><a href="../using-vscode/index.html">Using VS Code</a><a href="../using-jupyterlab/index.html">Using JupyterLab</a><a href="../codex-agents/index.html">Codex Agents</a></nav>
     <div class="sidebar-note"><span class="status-dot"></span> Growing guide<p>Environment setup, batch jobs, Pixi, VS Code, JupyterLab, and Codex Agents. More analysis workflows will follow.</p></div>
-    <a class="sidebar-source" href="https://github.com/rafaellopesdesa/unity_atlas/issues">Suggest an improvement ↗</a>
+    <a class="sidebar-source" href="https://github.com/rafaellopesdesa/unity_atlas/issues">Report a problem ↗</a>
   </aside>
   <main id="main" tabindex="-1">
     <div class="breadcrumb">Documentation <span>/</span> Using Pixi</div>
     <div class="eyebrow">ATLAS · UMASS UNITY</div>
     <h1>Using Pixi</h1>
     <article><p>Pixi installs software in your own directories and runs commands with the dependencies supplied by a project. No administrator privileges are needed. This chapter covers installing Pixi, managing personal command-line tools, and using an <strong>existing</strong> Pixi project.</p>
-<p>Complete the <a href="../setting-up-environment/">environment setup</a>, including your work/project directories and <code>.bashrc</code> configuration, first. The examples use your saved <code>USER_PI</code>, Unity <code>$USER</code>, and allocation/container helpers.</p>
+<p>Complete the <a href="../setting-up-environment/">environment setup</a>, including your work/project directories and <a href="../setting-up-environment/#bashrc"><code>.bashrc</code> configuration</a>, first. The examples use your saved <code>ATLAS_WORKDIR</code>, derived from <code>USER_PI</code> and Unity <code>$USER</code>, and the allocation/container helpers.</p>
 <table>
 <colgroup>
 <col style="width: 33%" />
@@ -57,14 +57,15 @@
 </tbody>
 </table>
 <h2 id="installation">1. Install Pixi in your user area</h2>
-<p>For the ATLAS workflows in this guide, use a <strong>fresh EL9 container before running <code>asetup</code></strong>. Install and resolve packages in the operating-system environment where you intend to run them. Starting from the Unity login node:</p>
+<p>For the EL9 workflows in this guide, use a <strong>fresh container before running <code>asetup</code></strong>. Independent Pixi projects can run directly on Unity's Ubuntu hosts if they support that environment. Install and resolve packages in the operating-system environment where you intend to run them. To use EL9, start from the Unity login node:</p>
 <pre class="bash"><code>unity_cpu
 
 # After allocation, on the Ubuntu compute node:
+# If your settings or helpers are missing, run source ~/.bashrc here.
 module load apptainer/latest
 cd &quot;$ATLAS_WORKDIR&quot;
 setupATLAS -c el9</code></pre>
-<p>Inside EL9, run the official installer <strong>once</strong>:</p>
+<p>In your chosen compute-node environment (EL9 for the sequence above), run the official installer <strong>once</strong>:</p>
 <pre class="bash"><code>curl -fsSL https://pixi.sh/install.sh | PIXI_NO_PATH_UPDATE=1 bash
 export PATH=&quot;$HOME/.pixi/bin:$PATH&quot;
 pixi --version</code></pre>
@@ -108,8 +109,8 @@ rg --version</code></pre>
 <h2 id="projects">3. Install an existing project's dependencies</h2>
 <p>A Pixi-enabled repository supplies a <strong>manifest</strong>, usually <code>pixi.toml</code> or a <code>pyproject.toml</code> containing Pixi configuration. It often also supplies <code>pixi.lock</code>, which records the resolved package versions. You do not need to create or edit either file just to run that project.</p>
 <p>Place the repository in your work area. For a project already checked out under <code>PROJECT_NAME</code>, run:</p>
-<pre class="bash"><code># Inside a fresh EL9 shell; replace PROJECT_NAME with your repository directory.
-cd &quot;/work/${USER_PI}/${USER}/atlas/PROJECT_NAME&quot;
+<pre class="bash"><code># In the runtime required by the project; replace PROJECT_NAME with its directory.
+cd &quot;$ATLAS_WORKDIR/PROJECT_NAME&quot;
 pixi install</code></pre>
 <p><code>pixi install</code> prepares the default environment, normally under the project's <code>.pixi/envs/</code> directory. It uses an up-to-date lock file; if the lock is missing or needs updating, it can resolve dependencies and write the lock. Downloads and environments consume your storage quota, so keep substantial project environments in your work area.</p>
 <p>When the project provides a lock file and you want to require it unchanged, use:</p>
@@ -131,17 +132,19 @@ pixi run --manifest-path &quot;$ATLAS_WORKDIR/PROJECT_NAME/pixi.toml&quot; pytho
 <p>For notebooks, <a href="../using-jupyterlab/">Using JupyterLab</a> shows how to launch the server from this environment and connect from your browser through SSH.</p>
 <h2 id="atlas">5. Use Pixi alongside ATLAS</h2>
 <p>Continue to use <code>asetup</code> for an ATLAS release and its Python/ROOT stack. Use Pixi for projects and supporting tools that supply their own dependencies. Installing another Python or ROOT globally can change which executable your shell finds; use project environments for those packages.</p>
-<p>Separate package environments do not automatically remove every inherited variable. An existing ATLAS <code>PYTHONPATH</code> or <code>LD_LIBRARY_PATH</code> can interfere with an independent Pixi program. Start those workflows in a fresh EL9 shell before <code>asetup</code>, unless the project documents a combined setup.</p>
+<p>Separate package environments do not automatically remove every inherited variable. An existing ATLAS <code>PYTHONPATH</code> or <code>LD_LIBRARY_PATH</code> can interfere with an independent Pixi program. Start those workflows in a fresh shell or container before <code>asetup</code>, unless the project documents a combined setup.</p>
 <p>The <a href="../codex-agents/#mcp-install">Codex Agents chapter</a> provides such a combined workflow: Codex inherits the ATLAS release, while a launcher runs the Rucio/AMI clients in a separate Pixi environment with an explicitly cleaned environment. It reuses the Pixi installation from this chapter.</p>
 <h2 id="learn-more">Learn how to create and modify environments</h2>
 <p>For a guided introduction to creating a Pixi project, adding dependencies, and maintaining its environment, follow <strong><a href="https://carpentries-incubator.github.io/pixi-introduction/">The Carpentries: Introduction to Pixi</a></strong>. This manual focuses on installing tools and running environments supplied by an analysis or service.</p>
-<p>References: <a href="https://pixi.prefix.dev/latest/installation/">installation</a>, <a href="https://pixi.prefix.dev/latest/global_tools/introduction/">global tools</a>, <a href="https://pixi.prefix.dev/latest/reference/cli/pixi/install/"><code>pixi install</code></a>, <a href="https://pixi.prefix.dev/latest/reference/cli/pixi/run/"><code>pixi run</code></a>, and <a href="https://pixi.prefix.dev/latest/workspace/lock_file/">lock files</a>.</p>
+<h2 id="references">References</h2>
+<ul>
+<li>Pixi: <a href="https://pixi.prefix.dev/latest/installation/">installation</a>, <a href="https://pixi.prefix.dev/latest/global_tools/introduction/">global tools</a>, <a href="https://pixi.prefix.dev/latest/reference/cli/pixi/install/"><code>pixi install</code></a>, <a href="https://pixi.prefix.dev/latest/reference/cli/pixi/run/"><code>pixi run</code></a>, and <a href="https://pixi.prefix.dev/latest/workspace/lock_file/">lock files</a>.</li>
+</ul>
 <p><strong>Next:</strong> <a href="../using-vscode/">Using VS Code</a> covers interactive editing and ATLAS Python execution on Unity.</p>
-<p>Documentation reviewed: <strong>8 November 2026</strong>. Local checks cover the rendered links and Bash syntax; package installation and execution on Unity remain to be tested.</p>
 </article>
     <footer><span>ATLAS Analysis on Unity</span><a href="https://github.com/rafaellopesdesa/unity_atlas/blob/main/docs/using-pixi.md">View page source ↗</a></footer>
   </main>
-  <aside class="toc" aria-label="On this page"><p class="nav-label">On this page</p><nav><a href="#installation">1. Install Pixi in your user area</a><a href="#global-tools">2. Manage personal tools with pixi global</a><a href="#projects">3. Install an existing project&#x27;s dependencies</a><a href="#run">4. Run the project&#x27;s code</a><a href="#atlas">5. Use Pixi alongside ATLAS</a><a href="#learn-more">Learn how to create and modify environments</a></nav><a class="back-top" href="#main">Back to top ↑</a></aside>
+  <aside class="toc" aria-label="On this page"><p class="nav-label">On this page</p><nav><a href="#installation">1. Install Pixi in your user area</a><a href="#global-tools">2. Manage personal tools with pixi global</a><a href="#projects">3. Install an existing project&#x27;s dependencies</a><a href="#run">4. Run the project&#x27;s code</a><a href="#atlas">5. Use Pixi alongside ATLAS</a><a href="#learn-more">Learn how to create and modify environments</a><a href="#references">References</a></nav><a class="back-top" href="#main">Back to top ↑</a></aside>
 </div>
 </body>
 </html>
