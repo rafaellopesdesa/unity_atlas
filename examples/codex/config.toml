@@ -1,0 +1,23 @@
+# Merge into your existing ~/.codex/config.toml; do not replace it blindly.
+# Top-level settings must appear before any [table] headers.
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+allow_login_shell = false
+
+[shell_environment_policy]
+inherit = "all"
+ignore_default_excludes = false
+
+[mcp_servers.atlas-rucio]
+command = "/ABSOLUTE/HOME/.local/share/unity-atlas-mcp/atlas-mcp-env.sh"
+args = ["rucio-mcp", "serve", "--site", "atlas", "--auth-type", "x509", "--read-only"]
+env_vars = ["X509_USER_PROXY", "RUCIO_ACCOUNT", "ATLAS_MCP_PIXI", "ATLAS_PMGXSEC_PATH"]
+startup_timeout_sec = 120
+tool_timeout_sec = 120
+
+[mcp_servers.atlas-ami]
+command = "/ABSOLUTE/HOME/.local/share/unity-atlas-mcp/atlas-mcp-env.sh"
+args = ["ami-mcp", "serve"]
+env_vars = ["X509_USER_PROXY", "ATLAS_MCP_PIXI", "ATLAS_PMGXSEC_PATH"]
+startup_timeout_sec = 120
+tool_timeout_sec = 120

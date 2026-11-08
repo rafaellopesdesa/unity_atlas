@@ -4,6 +4,7 @@ import ast
 import json
 import subprocess
 import tempfile
+import tomllib
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
@@ -77,6 +78,8 @@ for path, page in pages.items():
     for languages, block in page.typed_blocks:
         if "json" in languages:
             json.loads(block)
+        if "toml" in languages:
+            tomllib.loads(block)
 assert blocks > 0, "No Bash code blocks were checked"
 # The examples readers download must be the same scripts they see on the page.
 examples = [(ROOT / "examples/atlas-bashrc.sh", "setting-up-environment/index.html")]
@@ -102,4 +105,14 @@ for name in ("check_atlas.py", "launch.json"):
         json.loads(content)
     assert content.strip() in [block.strip() for _, block in vscode_page.typed_blocks], \
         f"Displayed example differs from download: {name}"
+# Codex's launcher is a linked download. Its TOML configuration and package
+# manifest are also displayed in full and must match the downloaded files.
+for example in (ROOT / "examples/codex").glob("*.sh"):
+    subprocess.run(["bash", "-n", str(example)], check=True)
+codex_page = pages[(ROOT / "codex-agents/index.html").resolve()]
+for example in (ROOT / "examples/codex").glob("*.toml"):
+    content = example.read_text()
+    tomllib.loads(content)
+    assert content.strip() in [block.strip() for _, block in codex_page.typed_blocks], \
+        f"Displayed example differs from download: {example.name}"
 print(f"Checked {len(pages)} pages, {links} local links, and {blocks} Bash blocks.")

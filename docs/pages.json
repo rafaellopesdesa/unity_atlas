@@ -26,5 +26,12 @@
     "title": "Using VS Code",
     "label": "Using VS Code",
     "description": "Use VS Code on Unity with EL9, ATLAS Python, debugging, and notebook kernels through SSH or Remote Tunnels."
+  },
+  {
+    "source": "codex-agents.md",
+    "output": "codex-agents/index.html",
+    "title": "Codex Agents",
+    "label": "Codex Agents",
+    "description": "Run Codex inside EL9 with ATLAS software and personal Rucio and AMI MCP servers, from installation and grid authentication to session renewal."
   }
 ]

@@ -1,0 +1,12 @@
+[workspace]
+name = "atlas-mcp"
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[dependencies]
+python = "3.11.*"
+rucio-mcp = "==0.10.0"
+ami-mcp = "==0.3.1"
+voms = "*"
+voms-lsc = "*"
+ca-policy-lcg = "*"

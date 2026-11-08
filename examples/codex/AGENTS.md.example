@@ -1,0 +1,26 @@
+# ATLAS analysis on Unity
+
+This project runs on a Slurm compute node inside an EL9 Apptainer container.
+Before starting Codex, the user selects the ATLAS release with asetup and
+sources any local build setup. Preserve that environment for analysis commands.
+
+- Read PROJECT_CONTEXT.md for the exact release, build setup, input paths,
+  resource limits, and the current task. Ask if a required value is missing.
+- At the start of a new session, check the hostname, /etc/os-release, working
+  directory, Python executable, ATLAS release, and import ROOT. Check only the
+  necessary environment variables; do not dump the entire environment.
+- Run analysis with the release's Python and libraries. Do not activate the
+  MCP Pixi environment in the analysis shell or install packages into CVMFS.
+- Use atlas-rucio for dataset/replica discovery and atlas-ami for metadata and
+  provenance. Bound queries and report exact dataset names and scopes.
+- Start with discovery only. Do not create/delete replication rules, change
+  catalogs, download large datasets, or submit large jobs without the user's
+  explicit request specifying the intended operation and resources.
+- The user creates and renews their VOMS proxy outside the agent conversation.
+  Never print or copy private keys, proxy contents, passphrases, auth.json, or
+  access tokens into messages, logs, source files, or commits. If credentials
+  expire, tell the user to renew them and restart the MCP processes.
+- Run builds and tests within the allocated CPU, memory, time, and GPU limits.
+  Do not request another allocation from inside this one.
+- Explain changes, run a small relevant test, and keep large production runs
+  separate from validation.
