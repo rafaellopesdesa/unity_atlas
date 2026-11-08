@@ -20,8 +20,8 @@
   <aside class="sidebar" id="sidebar">
     <div class="search" hidden><label for="search-input">Search this guide</label><input id="search-input" type="search" placeholder="Search topics or commands…" autocomplete="off"><p id="search-status" aria-live="polite"></p><ul id="search-results" hidden></ul></div>
     <p class="nav-label">Documentation</p>
-    <nav class="chapters" aria-label="Chapters"><a href="../index.html">Overview</a><a href="../setting-up-environment/index.html">Setting up the environment</a><a href="../submitting-jobs/index.html">Submitting jobs with Slurm</a><a aria-current="page" href="index.html">Using Pixi</a><a href="../using-vscode/index.html">Using VS Code</a><a href="../codex-agents/index.html">Codex Agents</a></nav>
-    <div class="sidebar-note"><span class="status-dot"></span> Growing guide<p>Environment setup, batch jobs, Pixi, VS Code, and Codex Agents. More analysis workflows will follow.</p></div>
+    <nav class="chapters" aria-label="Chapters"><a href="../index.html">Overview</a><a href="../setting-up-environment/index.html">Setting up the environment</a><a href="../submitting-jobs/index.html">Submitting jobs with Slurm</a><a aria-current="page" href="index.html">Using Pixi</a><a href="../using-vscode/index.html">Using VS Code</a><a href="../using-jupyterlab/index.html">Using JupyterLab</a><a href="../codex-agents/index.html">Codex Agents</a></nav>
+    <div class="sidebar-note"><span class="status-dot"></span> Growing guide<p>Environment setup, batch jobs, Pixi, VS Code, JupyterLab, and Codex Agents. More analysis workflows will follow.</p></div>
     <a class="sidebar-source" href="https://github.com/rafaellopesdesa/unity_atlas/issues">Suggest an improvement ↗</a>
   </aside>
   <main id="main" tabindex="-1">
@@ -128,6 +128,7 @@ pixi run python analysis.py</code></pre>
 <pre class="bash"><code>pixi install --manifest-path &quot;$ATLAS_WORKDIR/PROJECT_NAME/pixi.toml&quot;
 pixi run --manifest-path &quot;$ATLAS_WORKDIR/PROJECT_NAME/pixi.toml&quot; python --version</code></pre>
 <p>The manifest selects the environment; follow the project's working-directory instructions for code that opens relative paths. Keep builds, event processing, and training inside your Slurm allocation. Pixi does not allocate CPUs, GPUs, or additional wall time.</p>
+<p>For notebooks, <a href="../using-jupyterlab/">Using JupyterLab</a> shows how to launch the server from this environment and connect from your browser through SSH.</p>
 <h2 id="atlas">5. Use Pixi alongside ATLAS</h2>
 <p>Continue to use <code>asetup</code> for an ATLAS release and its Python/ROOT stack. Use Pixi for projects and supporting tools that supply their own dependencies. Installing another Python or ROOT globally can change which executable your shell finds; use project environments for those packages.</p>
 <p>Separate package environments do not automatically remove every inherited variable. An existing ATLAS <code>PYTHONPATH</code> or <code>LD_LIBRARY_PATH</code> can interfere with an independent Pixi program. Start those workflows in a fresh EL9 shell before <code>asetup</code>, unless the project documents a combined setup.</p>

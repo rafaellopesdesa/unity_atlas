@@ -10,7 +10,9 @@ The third chapter, **Using Pixi**, covers installation in the user area, persist
 
 The fourth chapter, **Using VS Code**, covers local SSH configuration, compute allocations, ordinary Remote SSH, a container RemoteCommand launcher, and Remote Tunnels started inside EL9. It includes Python Run/debug checks, notebook kernel selection, a remote Jupyter alternative, and session cleanup. Downloadable helpers and examples are in `examples/vscode/`; the rendered chapter is `using-vscode/index.html`.
 
-The fifth chapter, **Codex Agents**, gives the full per-user workflow: start Codex inside EL9 with an ATLAS release, install isolated Rucio/AMI MCP clients, create a VOMS proxy, configure stdio servers, check authenticated access, and renew/resume sessions. It assumes Pixi is installed as described in the earlier chapter. Downloadable configuration, a Pixi manifest, an environment launcher, and project instructions are in `examples/codex/`; the rendered chapter is `codex-agents/index.html`.
+The fifth chapter, **Using JupyterLab**, covers launching a notebook server from a Pixi project in a Slurm session, choosing Ubuntu or EL9, connecting a local browser through SSH, selecting and checking the kernel, and managing session lifetime. It reuses the environment and Pixi setup. The rendered chapter is `using-jupyterlab/index.html`.
+
+The sixth chapter, **Codex Agents**, gives the full per-user workflow: start Codex inside EL9 with an ATLAS release, install isolated Rucio/AMI MCP clients, create a VOMS proxy, configure stdio servers, check authenticated access, and renew/resume sessions. It assumes Pixi is installed as described in the earlier chapter. Downloadable configuration, a Pixi manifest, an environment launcher, and project instructions are in `examples/codex/`; the rendered chapter is `codex-agents/index.html`.
 
 ## Publish with GitHub Pages
 
@@ -41,11 +43,15 @@ The Codex chapter was reviewed on 8 November 2026 against OpenAI, Pixi, and the 
 
 The Pixi chapter was reviewed on 8 November 2026 against the official installation, global-tool, install/run, and lock-file documentation. Local checks cover Bash syntax and rendered links. Pixi installation and package execution on Unity remain to be tested.
 
+The JupyterLab chapter was reviewed on 8 November 2026 against Unity, Pixi, Jupyter/IPython, OpenSSH, and Apptainer documentation. Local checks cover Bash/Python syntax, navigation, and internal links. Kernel registration, browser access through the tunnel, package imports, and reconnection still need an end-to-end Unity test.
+
 To record a Unity smoke test, include the date, compute-node hostname and architecture, Apptainer version and runtime selected by ALRB, resolved container image, `/etc/os-release` inside the container, storage visibility, exact ATLAS release/platform, and ROOT/PyROOT checks. For a GPU allocation, also verify passthrough and the Slurm-assigned device selection with the intended CUDA framework.
 
 ## Primary references
 
 - <https://pixi.prefix.dev/latest/>
+- <https://pixi.prefix.dev/latest/integration/editor/jupyterlab/>
+- <https://jupyter-server.readthedocs.io/en/latest/operators/security.html>
 - <https://carpentries-incubator.github.io/pixi-introduction/>
 - <https://atlas-software.docs.cern.ch/>
 - <https://docs.unity.rc.umass.edu/documentation/>

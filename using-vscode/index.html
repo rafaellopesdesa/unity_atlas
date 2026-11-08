@@ -20,8 +20,8 @@
   <aside class="sidebar" id="sidebar">
     <div class="search" hidden><label for="search-input">Search this guide</label><input id="search-input" type="search" placeholder="Search topics or commands…" autocomplete="off"><p id="search-status" aria-live="polite"></p><ul id="search-results" hidden></ul></div>
     <p class="nav-label">Documentation</p>
-    <nav class="chapters" aria-label="Chapters"><a href="../index.html">Overview</a><a href="../setting-up-environment/index.html">Setting up the environment</a><a href="../submitting-jobs/index.html">Submitting jobs with Slurm</a><a href="../using-pixi/index.html">Using Pixi</a><a aria-current="page" href="index.html">Using VS Code</a><a href="../codex-agents/index.html">Codex Agents</a></nav>
-    <div class="sidebar-note"><span class="status-dot"></span> Growing guide<p>Environment setup, batch jobs, Pixi, VS Code, and Codex Agents. More analysis workflows will follow.</p></div>
+    <nav class="chapters" aria-label="Chapters"><a href="../index.html">Overview</a><a href="../setting-up-environment/index.html">Setting up the environment</a><a href="../submitting-jobs/index.html">Submitting jobs with Slurm</a><a href="../using-pixi/index.html">Using Pixi</a><a aria-current="page" href="index.html">Using VS Code</a><a href="../using-jupyterlab/index.html">Using JupyterLab</a><a href="../codex-agents/index.html">Codex Agents</a></nav>
+    <div class="sidebar-note"><span class="status-dot"></span> Growing guide<p>Environment setup, batch jobs, Pixi, VS Code, JupyterLab, and Codex Agents. More analysis workflows will follow.</p></div>
     <a class="sidebar-source" href="https://github.com/rafaellopesdesa/unity_atlas/issues">Suggest an improvement ↗</a>
   </aside>
   <main id="main" tabindex="-1">
@@ -80,7 +80,7 @@ Host *.unity.rc.umass.edu
     ProxyJump unity</code></pre>
 <p><code>ProxyJump</code> reaches the compute node through Unity's login service. Test the login connection in a local terminal:</p>
 <pre class="bash"><code>ssh unity</code></pre>
-<p>If Windows OpenSSH reports <code>Corrupted MAC on input</code>, Unity documents adding <code>MACs hmac-sha2-512</code> to the affected SSH host entries. Apply that workaround only for that error.</p>
+<p>If Windows OpenSSH reports <code>Corrupted MAC on input</code>, Unity documents adding <code>MACs hmac-sha2-512-etm@openssh.com</code> to the affected SSH host entries. Apply that workaround only for that error.</p>
 <p>Complete the <a href="../setting-up-environment/#directories">one-time directory setup</a> and <a href="../setting-up-environment/#bashrc">Bash configuration</a> first. This chapter assumes <code>USER_PI</code>, <code>ATLAS_WORKDIR="/work/${USER_PI}/${USER}/atlas"</code>, and the <code>unity_cpu</code>, <code>unity_gpu</code>, <code>setupATLAS</code>, and <code>atlas_gpu</code> helpers are already defined. In a Unity terminal, <code>$USER</code> is your Unity username; your local SSH configuration still needs that literal username. <strong>Do not automatically run <code>salloc</code>, enter a container, or select an ATLAS release every time <code>.bashrc</code> is read.</strong> SSH and VS Code also start noninteractive shells; keep these actions in commands you call explicitly.</p>
 <h2 id="allocation">Request a compute session</h2>
 <p>In the Unity login shell, request a single compute node. For example, for CPU work:</p>
@@ -254,6 +254,7 @@ assert histogram.GetEntries() == 1</code></pre>
 <pre class="bash"><code>python -c &#39;import ipykernel; print(ipykernel.__version__)&#39;</code></pre>
 <p>If that fails, arrange a writable, compatible kernel environment for that release before proceeding; do not install packages into read-only CVMFS or replace the release's ROOT/Python stack indiscriminately. Run the contents of <code>check_atlas.py</code> in a notebook cell to confirm that the <strong>kernel</strong>, not only a terminal, is using EL9 and ATLAS.</p>
 <h3 id="remote-jupyter">Alternative: connect only the notebook kernel</h3>
+<p>For a browser interface with a project-managed Pixi environment, follow the complete <a href="../using-jupyterlab/">Using JupyterLab</a> workflow. The instructions below connect a local VS Code notebook to an ATLAS-configured Jupyter server.</p>
 <p>If you only need notebooks, a <strong>local VS Code window</strong> can connect to a <strong>Jupyter server started inside EL9</strong>. Allocate a compute node and enter the configured container as above. This requires a working <code>jupyter</code> and <code>ipykernel</code> in that environment. After <code>asetup</code>, start:</p>
 <pre class="bash"><code>jupyter lab --no-browser --ip=127.0.0.1 --port=8888</code></pre>
 <p>Keep its authentication enabled. In a <strong>local terminal</strong>, forward that port through the allocated node, using the actual hostname:</p>

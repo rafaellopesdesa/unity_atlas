@@ -35,6 +35,13 @@
     "description": "Use VS Code on Unity with EL9, ATLAS Python, debugging, and notebook kernels through SSH or Remote Tunnels."
   },
   {
+    "source": "using-jupyterlab.md",
+    "output": "using-jupyterlab/index.html",
+    "title": "Using JupyterLab",
+    "label": "Using JupyterLab",
+    "description": "Launch JupyterLab in a Pixi environment on a Unity compute node and connect from your browser through an SSH tunnel."
+  },
+  {
     "source": "codex-agents.md",
     "output": "codex-agents/index.html",
     "title": "Codex Agents",

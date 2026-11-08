@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Using JupyterLab | ATLAS on Unity</title>
+  <meta name="description" content="Launch JupyterLab in a Pixi environment on a Unity compute node and connect from your browser through an SSH tunnel.">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script defer src="../assets/search-index.js"></script>
+  <script defer src="../assets/site.js"></script>
+</head>
+<body data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <a class="brand" href="../index.html"><span class="brand-mark" aria-hidden="true">A / U</span><span>ATLAS Analysis on Unity<small>UMass Amherst · Analysis facility guide</small></span></a>
+  <nav class="external" aria-label="External resources"><a href="https://docs.unity.rc.umass.edu/documentation/">Unity docs ↗</a><a href="https://atlas-software.docs.cern.ch/">ATLAS docs ↗</a><a href="https://github.com/rafaellopesdesa/unity_atlas">GitHub ↗</a></nav>
+  <button class="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>Menu</button>
+</header>
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="search" hidden><label for="search-input">Search this guide</label><input id="search-input" type="search" placeholder="Search topics or commands…" autocomplete="off"><p id="search-status" aria-live="polite"></p><ul id="search-results" hidden></ul></div>
+    <p class="nav-label">Documentation</p>
+    <nav class="chapters" aria-label="Chapters"><a href="../index.html">Overview</a><a href="../setting-up-environment/index.html">Setting up the environment</a><a href="../submitting-jobs/index.html">Submitting jobs with Slurm</a><a href="../using-pixi/index.html">Using Pixi</a><a href="../using-vscode/index.html">Using VS Code</a><a aria-current="page" href="index.html">Using JupyterLab</a><a href="../codex-agents/index.html">Codex Agents</a></nav>
+    <div class="sidebar-note"><span class="status-dot"></span> Growing guide<p>Environment setup, batch jobs, Pixi, VS Code, JupyterLab, and Codex Agents. More analysis workflows will follow.</p></div>
+    <a class="sidebar-source" href="https://github.com/rafaellopesdesa/unity_atlas/issues">Suggest an improvement ↗</a>
+  </aside>
+  <main id="main" tabindex="-1">
+    <div class="breadcrumb">Documentation <span>/</span> Using JupyterLab</div>
+    <div class="eyebrow">ATLAS · UMASS UNITY</div>
+    <h1>Using JupyterLab</h1>
+    <article><p>Run JupyterLab from your own terminal session on a Unity compute node, then connect from a browser on your computer through an SSH tunnel. Your project chooses the Pixi packages; you choose the Slurm resources and whether to run inside EL9. Notebooks, data access, and computation stay on Unity.</p>
+<p>This chapter assumes you have completed <a href="../setting-up-environment/">Setting up the environment</a>, including the one-time directories and <a href="../setting-up-environment/#bashrc"><code>.bashrc</code> configuration</a>, and <a href="../using-pixi/#installation">installed Pixi</a>. It reuses <code>USER_PI</code>, Unity <code>$USER</code>, <code>ATLAS_WORKDIR</code>, and the allocation/container helpers.</p>
+<div class="callout">
+<p><strong>Validation status.</strong> The commands follow the official Unity, Pixi, Jupyter, and OpenSSH documentation and have passed local syntax and link checks. This complete browser workflow still needs an end-to-end test on Unity.</p>
+</div>
+<h2 id="prepare">1. Prepare the project and your SSH connection</h2>
+<p>Use an existing project whose Pixi environment includes <strong><code>jupyterlab</code>, <code>ipykernel</code>, and the analysis packages</strong> you need. For example, a HEP project might supply Uproot, Awkward Array, Hist, and plotting packages. The examples below use the project's default environment. See <a href="../using-pixi/#projects">Using Pixi</a> for installing a supplied manifest, or the <a href="https://carpentries-incubator.github.io/pixi-introduction/">Carpentries introduction</a> for creating or changing one.</p>
+<p>JupyterLab supplies the interface and server; the <strong>kernel</strong> is the Python process that executes notebook cells. Both will run in the project's Pixi environment in this recipe. A global Jupyter installation is not needed.</p>
+<p>On your <strong>local computer</strong>, use the SSH configuration from <a href="../using-vscode/#configure-your-local-computer">Using VS Code</a>. If you have not configured it yet, merge the following into <code>~/.ssh/config</code> on Linux/macOS or <code>%USERPROFILE%\.ssh\config</code> on Windows. Replace <code>YOUR_USERNAME</code> and the private-key path with your Unity account and key; do not duplicate entries already present.</p>
+<pre class="sshconfig"><code>Host unity
+    HostName login.unityhpc.org
+    User YOUR_USERNAME
+    IdentityFile ~/.ssh/id_ed25519
+
+Host *.unity.rc.umass.edu
+    User YOUR_USERNAME
+    IdentityFile ~/.ssh/id_ed25519
+    ProxyJump unity</code></pre>
+<p>The second entry reaches a compute node through the login service. It uses your literal Unity username, which may differ from your laptop's <code>$USER</code>. Use an ordinary compute-node connection for this chapter, without the VS Code container <code>RemoteCommand</code> alias.</p>
+<p>In your first local terminal, connect:</p>
+<pre class="bash"><code>ssh unity</code></pre>
+<p>If Windows OpenSSH reports <code>Corrupted MAC on input</code>, Unity's <a href="https://docs.unity.rc.umass.edu/documentation/connecting/ssh/">SSH guide</a> documents adding <code>MACs hmac-sha2-512-etm@openssh.com</code> to the affected SSH host entries.</p>
+<h2 id="allocation">2. Allocate a compute node</h2>
+<p>On the <strong>Unity login node</strong>, record the login hostname, then start <code>tmux</code> before requesting resources. This lets the allocation and Jupyter process survive an SSH disconnection:</p>
+<pre class="bash"><code>hostname -f
+tmux new -s atlas-jupyter
+
+# Inside tmux, on the login node:
+unity_cpu</code></pre>
+<p>The CPU helper requests four CPUs, 16 GB of memory, and two hours. Adjust the allocation to your workload using the <a href="../setting-up-environment/#allocate">environment chapter</a>. For a GPU session, use <code>unity_gpu</code> <strong>instead of</strong> <code>unity_cpu</code>.</p>
+<p>When the allocation starts, you should be in the <strong>Ubuntu compute-node shell</strong>. Record both values below; the compute hostname is the destination for your later SSH tunnel, while the job ID identifies the allocation:</p>
+<pre class="bash"><code>hostname -f
+echo &quot;$SLURM_JOB_ID&quot;</code></pre>
+<p>If the new shell has not loaded your directory settings or helpers, run <code>source ~/.bashrc</code> there. Start Jupyter in this allocated shell, not on the login node.</p>
+<h2 id="runtime">3. Choose Ubuntu or EL9</h2>
+<p>For a self-contained Pixi analysis that supports Unity's Ubuntu hosts, you can remain in the compute-node shell. If your project requires EL9, enter the container <strong>before installing or starting its environment</strong>:</p>
+<pre class="bash"><code># Ubuntu compute node, for a CPU session requiring EL9:
+module load apptainer/latest
+cd &quot;$ATLAS_WORKDIR&quot;
+setupATLAS -c el9</code></pre>
+<p>For an allocated NVIDIA GPU node, use <code>cd "$ATLAS_WORKDIR"</code> followed by <code>atlas_gpu</code> instead. That helper enables the GPU passthrough described in the environment chapter. The Pixi environment must also contain a compatible GPU framework; reserving a GPU does not make ordinary notebook code use it.</p>
+<p>Inside EL9, check <code>cat /etc/os-release</code>. This workflow uses Apptainer's normal shared host networking, so the SSH tunnel can reach Jupyter on the compute node's loopback address. Do not add a separate network namespace such as <code>--net</code> to this recipe.</p>
+<p><strong>Keep an independent Pixi analysis separate from <code>asetup</code>.</strong> Start with a fresh shell/container before loading an ATLAS release. A Pixi Python environment does not automatically acquire the release's PyROOT or Athena bindings, and inherited ATLAS Python/library paths can conflict with its packages. If your notebook needs those bindings, it needs a compatible ATLAS kernel setup; see the <a href="../using-vscode/#notebooks-and-the-python-interactive-window">ATLAS notebook checks in Using VS Code</a>.</p>
+<h2 id="start">4. Install the environment and start JupyterLab</h2>
+<p>In the chosen <strong>compute-node environment</strong> (Ubuntu or EL9), enter the existing project. Replace <code>PROJECT_NAME</code> with its directory name:</p>
+<pre class="bash"><code>cd &quot;/work/${USER_PI}/${USER}/atlas/PROJECT_NAME&quot;
+
+# Restore the user-tool path if the container reset PATH.
+export PATH=&quot;$HOME/.pixi/bin:$PATH&quot;
+pixi install
+pixi run python -c &#39;import sys, jupyterlab, ipykernel; print(sys.executable)&#39;</code></pre>
+<p>Keep the printed Python path for the notebook check below. If an import fails, the project's environment needs the missing dependency. Update the manifest through the project's normal workflow; do not install into an unrelated Python. For a project with a supplied lock file, you can use <code>pixi install --locked</code> as explained in <a href="../using-pixi/#projects">Using Pixi</a>.</p>
+<p>Give this environment's kernel a clear name. Run this once after installing the environment, and repeat if you recreate or move it:</p>
+<pre class="bash"><code>pixi run python -m ipykernel install --sys-prefix \
+  --name unity-hep --display-name &quot;Python (HEP Pixi)&quot;</code></pre>
+<p><code>--sys-prefix</code> places the kernel definition inside this Pixi environment, where this JupyterLab server can find it. It does not register a container-dependent interpreter for every other Jupyter server in your account. The definition records the interpreter path, so keep the project in its current location during the session.</p>
+<p>Now start the server in the foreground:</p>
+<pre class="bash"><code>pixi run jupyter lab --no-browser --ip=127.0.0.1 --port=8888 \
+  --ServerApp.port_retries=0</code></pre>
+<p>The server listens only on the compute node's loopback interface. <code>port_retries=0</code> makes it stop if port 8888 is occupied, instead of silently choosing another port. In that case, select another port, such as 8890, here <strong>and in the remote-port position of the tunnel below</strong>.</p>
+<p>Keep authentication enabled. With Jupyter's default token authentication, the terminal prints an HTTP URL containing a private token. Keep that terminal running; do not copy the token into a repository or share it. If you previously configured a Jupyter password, use that password when prompted instead.</p>
+<h2 id="connect">5. Connect from your browser</h2>
+<p>Open a <strong>second terminal on your local computer</strong>. Replace <code>COMPUTE_NODE</code> with the full compute hostname recorded in step 2, for example <code>cpu001.unity.rc.umass.edu</code>:</p>
+<pre class="bash"><code>ssh -N -o ExitOnForwardFailure=yes \
+  -L 127.0.0.1:8888:127.0.0.1:8888 COMPUTE_NODE</code></pre>
+<p>This command uses the <code>ProxyJump</code> configuration above. It forwards your computer's port 8888 to port 8888 on the allocated node's loopback interface. The SSH destination must be the <strong>compute node</strong>; forwarding to the login node's loopback would reach the wrong machine. A quiet terminal is normal: leave the tunnel running.</p>
+<p>Open the <code>http://127.0.0.1:8888/lab?token=...</code> URL in your local browser, substituting the actual token printed by Jupyter. Use its HTTP URL, not the <code>file:///...</code> shortcut, which refers to a file on Unity. The SSH connection carries the browser traffic to the server.</p>
+<p>If port 8888 is already used on your <strong>local computer</strong>, use a different local port while retaining the server's remote port:</p>
+<pre class="bash"><code>ssh -N -o ExitOnForwardFailure=yes \
+  -L 127.0.0.1:8889:127.0.0.1:8888 COMPUTE_NODE</code></pre>
+<p>Then open <code>http://127.0.0.1:8889/lab?token=...</code> with the same token. In <code>-L</code>, the first port is local and the last port is on the compute node.</p>
+<h2 id="kernel">6. Select and check the notebook kernel</h2>
+<p>In JupyterLab, open or create a notebook and select <strong>Python (HEP Pixi)</strong> from the kernel menu. Check this even for an existing notebook: it may remember a different kernel.</p>
+<p>Run the following cell:</p>
+<pre class="python"><code>import sys
+from pathlib import Path
+
+print(&quot;Python:&quot;, sys.executable)
+print(&quot;Working directory:&quot;, Path.cwd())</code></pre>
+<p>The Python path should match the one printed by <code>pixi run python</code> in step 4. Test the analysis packages your project actually includes, for example:</p>
+<pre class="python"><code>import uproot
+import awkward as ak
+import hist
+
+print(&quot;Uproot:&quot;, uproot.__version__)
+print(&quot;Awkward:&quot;, ak.__version__)
+print(&quot;Hist:&quot;, hist.__version__)</code></pre>
+<p>The selected kernel has access to the packages installed in that Pixi environment and the files visible to its Unity process. Notebook paths refer to Unity storage, not your laptop. JupyterLab's file browser starts in the project directory; notebooks saved there are saved on Unity. Normal filesystem permissions and container mounts still apply. For a GPU project, also run its framework's device check in a cell.</p>
+<h2 id="sessions">7. Disconnect, reconnect, and finish</h2>
+<p>Save the notebook before disconnecting. In the first terminal, detach from <code>tmux</code> with <strong>Ctrl+B</strong>, then <strong>D</strong>. You can then close the SSH connection and stop the local forwarding command with <strong>Ctrl+C</strong>. The server and kernel can continue while their allocation is running. Closing a browser tab alone does not stop them or release resources.</p>
+<p>To return, reconnect to Unity and use <code>ssh loginX</code> to reach the same login node you recorded before starting <code>tmux</code>, if necessary. Then run:</p>
+<pre class="bash"><code>tmux attach -t atlas-jupyter</code></pre>
+<p>Recreate the local SSH tunnel and reopen the authenticated URL. If the same Jupyter server and kernel are still running, their in-memory state remains available. Once the Slurm time limit is reached, the job is cancelled, or the node fails, that state is lost; a new allocation requires a new server and tunnel destination. Saved notebooks and files remain, but saved cell output is not a checkpoint of Python variables.</p>
+<p>When finished, save your work, stop Jupyter with <strong>Ctrl+C</strong> in its terminal and confirm shutdown if prompted. Exit the container if you entered one, then exit the original allocated compute shell to release the allocation. Stop the local SSH tunnel too. From a login shell you can check remaining jobs with <code>squeue -u "$USER"</code>.</p>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Symptom</th>
+<th>What to check</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>jupyter</code> or <code>ipykernel</code> is missing</td>
+<td>Both must be in this project's Pixi environment; check imports through <code>pixi run python</code>.</td>
+</tr>
+<tr class="even">
+<td>The server reports its port is occupied</td>
+<td>Select a different server port and update the tunnel's remote port. Keep the fixed-port behavior.</td>
+</tr>
+<tr class="odd">
+<td>SSH reports <code>Address already in use</code></td>
+<td>Change the tunnel's local port and the browser URL, as in the 8889 example.</td>
+</tr>
+<tr class="even">
+<td>Compute-node SSH fails</td>
+<td>Check the live allocation, full compute hostname, Unity username/key, and <code>ProxyJump</code> configuration.</td>
+</tr>
+<tr class="odd">
+<td>Browser connection is refused</td>
+<td>Keep both Jupyter and the local tunnel running; check that the tunnel targets the correct node and server port.</td>
+</tr>
+<tr class="even">
+<td>Browser asks for authentication</td>
+<td>Use the current server's token or configured password. A restarted server may have a new token.</td>
+</tr>
+<tr class="odd">
+<td>Imports work in a terminal but fail in the notebook</td>
+<td>Select <strong>Python (HEP Pixi)</strong> and compare <code>sys.executable</code>. Repeat kernel registration if the environment was recreated or moved.</td>
+</tr>
+<tr class="even">
+<td>A package was added but the notebook still uses the old state</td>
+<td>Stop/restart the kernel after updating the environment; rerun the notebook cells.</td>
+</tr>
+<tr class="odd">
+<td>ATLAS bindings fail in Pixi Python</td>
+<td>Follow a project-supported ATLAS kernel setup; EL9 alone does not make independent Python environments interchangeable.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="references">References and validation</h2>
+<ul>
+<li>Unity: <a href="https://docs.unity.rc.umass.edu/documentation/connecting/ssh/">SSH</a>, <a href="https://docs.unity.rc.umass.edu/documentation/connecting/vscode/">compute-node SSH configuration</a>, and <a href="https://docs.unity.rc.umass.edu/documentation/jobs/">interactive jobs and tmux</a>.</li>
+<li>Pixi: <a href="https://pixi.prefix.dev/latest/integration/editor/jupyterlab/">JupyterLab integration</a> and <a href="https://pixi.prefix.dev/latest/reference/cli/pixi/run/">running commands</a>.</li>
+<li>Jupyter: <a href="https://jupyter-server.readthedocs.io/en/latest/operators/security.html">authentication and token URLs</a>, <a href="https://jupyter-server.readthedocs.io/en/latest/other/full-config.html">server options</a>, and <a href="https://jupyter-notebook.readthedocs.io/en/latest/troubleshooting.html">kernel troubleshooting</a>.</li>
+<li>IPython: <a href="https://ipython.readthedocs.io/en/stable/install/kernel_install.html">kernel registration</a>.</li>
+<li>OpenSSH: <a href="https://man.openbsd.org/ssh.1"><code>ssh</code> port forwarding</a>.</li>
+<li>Apptainer: <a href="https://apptainer.org/docs/user/latest/networking.html">network namespaces</a>.</li>
+</ul>
+<p>Reviewed <strong>8 November 2026</strong>. Local checks cover rendered links and Bash/Python syntax. For the first Unity test, record the node, job ID, runtime (Ubuntu or EL9), Pixi/Jupyter versions, manifest and lock file, selected kernel path, successful imports, notebook save location, and reconnection result. No live Unity browser session was exercised here.</p>
+<p><strong>Next:</strong> <a href="../codex-agents/">Codex Agents</a> adds an agent with ATLAS software and authenticated dataset tools.</p>
+</article>
+    <footer><span>ATLAS Analysis on Unity</span><a href="https://github.com/rafaellopesdesa/unity_atlas/blob/main/docs/using-jupyterlab.md">View page source ↗</a></footer>
+  </main>
+  <aside class="toc" aria-label="On this page"><p class="nav-label">On this page</p><nav><a href="#prepare">1. Prepare the project and your SSH connection</a><a href="#allocation">2. Allocate a compute node</a><a href="#runtime">3. Choose Ubuntu or EL9</a><a href="#start">4. Install the environment and start JupyterLab</a><a href="#connect">5. Connect from your browser</a><a href="#kernel">6. Select and check the notebook kernel</a><a href="#sessions">7. Disconnect, reconnect, and finish</a><a href="#troubleshooting">Troubleshooting</a><a href="#references">References and validation</a></nav><a class="back-top" href="#main">Back to top ↑</a></aside>
+</div>
+</body>
+</html>

@@ -40,7 +40,7 @@ Host *.unity.rc.umass.edu
 ssh unity
 ```
 
-If Windows OpenSSH reports `Corrupted MAC on input`, Unity documents adding `MACs hmac-sha2-512` to the affected SSH host entries. Apply that workaround only for that error.
+If Windows OpenSSH reports `Corrupted MAC on input`, Unity documents adding `MACs hmac-sha2-512-etm@openssh.com` to the affected SSH host entries. Apply that workaround only for that error.
 
 Complete the [one-time directory setup](../setting-up-environment/#directories) and [Bash configuration](../setting-up-environment/#bashrc) first. This chapter assumes `USER_PI`, `ATLAS_WORKDIR="/work/${USER_PI}/${USER}/atlas"`, and the `unity_cpu`, `unity_gpu`, `setupATLAS`, and `atlas_gpu` helpers are already defined. In a Unity terminal, `$USER` is your Unity username; your local SSH configuration still needs that literal username. **Do not automatically run `salloc`, enter a container, or select an ATLAS release every time `.bashrc` is read.** SSH and VS Code also start noninteractive shells; keep these actions in commands you call explicitly.
 
@@ -316,6 +316,8 @@ python -c 'import ipykernel; print(ipykernel.__version__)'
 If that fails, arrange a writable, compatible kernel environment for that release before proceeding; do not install packages into read-only CVMFS or replace the release's ROOT/Python stack indiscriminately. Run the contents of `check_atlas.py` in a notebook cell to confirm that the **kernel**, not only a terminal, is using EL9 and ATLAS.
 
 ### Alternative: connect only the notebook kernel {#remote-jupyter}
+
+For a browser interface with a project-managed Pixi environment, follow the complete [Using JupyterLab](../using-jupyterlab/) workflow. The instructions below connect a local VS Code notebook to an ATLAS-configured Jupyter server.
 
 If you only need notebooks, a **local VS Code window** can connect to a **Jupyter server started inside EL9**. Allocate a compute node and enter the configured container as above. This requires a working `jupyter` and `ipykernel` in that environment. After `asetup`, start:
 

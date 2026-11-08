@@ -110,6 +110,8 @@ pixi run --manifest-path "$ATLAS_WORKDIR/PROJECT_NAME/pixi.toml" python --versio
 
 The manifest selects the environment; follow the project's working-directory instructions for code that opens relative paths. Keep builds, event processing, and training inside your Slurm allocation. Pixi does not allocate CPUs, GPUs, or additional wall time.
 
+For notebooks, [Using JupyterLab](../using-jupyterlab/) shows how to launch the server from this environment and connect from your browser through SSH.
+
 ## 5. Use Pixi alongside ATLAS {#atlas}
 
 Continue to use `asetup` for an ATLAS release and its Python/ROOT stack. Use Pixi for projects and supporting tools that supply their own dependencies. Installing another Python or ROOT globally can change which executable your shell finds; use project environments for those packages.
