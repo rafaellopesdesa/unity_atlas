@@ -17,6 +17,8 @@ This workflow needs no facility-wide credential broker and no change to Unity lo
 
 You need a Unity account and group work directory, an OpenAI sign-in method enabled for Codex, an active ATLAS grid identity, and a valid grid certificate/private key. Your certificate identity must be registered for the ATLAS services you use. A Unity login, CERN password, or Codex login does not replace the grid credential.
 
+Complete [Setting up the environment](../setting-up-environment/) first, including the one-time creation of your work/project directories and the [`.bashrc` configuration](../setting-up-environment/#bashrc). This chapter uses its `USER_PI` and `ATLAS_WORKDIR` exports, your Unity `$USER`, and the `unity_cpu`, `unity_gpu`, `setupATLAS`, and `atlas_gpu` commands.
+
 The compute node needs outbound connectivity to the sign-in/model service and ATLAS endpoints; installation additionally needs access to the package sources. This chapter starts with **dataset discovery and metadata queries**: Rucio MCP is explicitly launched in read-only mode.
 
 ## 2. Allocate resources and enter EL9 {#container}
@@ -31,47 +33,36 @@ For a session that can survive an SSH disconnect, start `tmux new -s atlas-codex
 
 ```bash
 # Unity login node
-salloc --partition=cpu --nodes=1 --ntasks=1 \
-  --cpus-per-task=4 --mem=16G --time=02:00:00
+unity_cpu
 ```
 
-Once Unity gives you a compute-node shell, check `hostname -f` and `echo "$SLURM_JOB_ID"`. Replace the group path below, then start the container:
+The default helper requests four CPUs, 16 GB of memory, and two hours. Once Unity gives you a compute-node shell, check `hostname -f` and `echo "$SLURM_JOB_ID"`, then start the container. If this new shell has not loaded your configuration, run `source ~/.bashrc` first.
 
 ```bash
 # Ubuntu compute node
 module load apptainer/latest
-export ATLAS_LOCAL_ROOT_BASE=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase
-mkdir -p "/work/pi_YOUR_PI/$USER/atlas"
-cd "/work/pi_YOUR_PI/$USER/atlas"
-source "$ATLAS_LOCAL_ROOT_BASE/user/atlasLocalSetup.sh" -c el9
+cd "$ATLAS_WORKDIR"
+setupATLAS -c el9
 ```
 
-For GPU analysis, use a GPU allocation instead of the CPU allocation:
+For GPU analysis, use this alternative sequence. `unity_gpu` requests one GPU with the same CPU, memory, and time limits; `atlas_gpu` loads Apptainer and supplies the tested GPU passthrough options:
 
 ```bash
-salloc --partition=gpu --nodes=1 --ntasks=1 --gpus=1 \
-  --cpus-per-task=4 --mem=16G --time=02:00:00
+# Unity login node
+unity_gpu
+
+# After allocation, on the Ubuntu GPU compute node
+cd "$ATLAS_WORKDIR"
+atlas_gpu
 ```
 
-Then replace the last CPU container-launch command with this sequence on the allocated Ubuntu node, after the same module/path preparation:
+`/work` is already visible in the tested Unity container setup, so no additional `-m /work` is normally required.
+
+Inside EL9, explicitly enter the project directory and check the environment:
 
 ```bash
-(
-    export ALRB_CONT_CMDOPTS="${ALRB_CONT_CMDOPTS:+$ALRB_CONT_CMDOPTS }--nv"
-    if [[ ${CUDA_VISIBLE_DEVICES+x} ]]; then
-        export APPTAINERENV_CUDA_VISIBLE_DEVICES="$CUDA_VISIBLE_DEVICES"
-    fi
-    source "$ATLAS_LOCAL_ROOT_BASE/user/atlasLocalSetup.sh" -c el9
-)
-```
-
-The optional `atlas_gpu` helper from [Setting up the environment](../setting-up-environment/#bashrc) performs the standard GPU launch. `/work` is already visible in the tested Unity container setup, so no additional `-m /work` is normally required.
-
-Inside EL9, explicitly enter your actual project directory and check the environment:
-
-```bash
-# Inside EL9 — use your actual paths
-cd /work/pi_YOUR_PI/YOUR_USERNAME/atlas
+# Inside EL9
+cd "/work/${USER_PI}/${USER}/atlas"
 cat /etc/os-release
 uname -m
 printf 'Container home: %s\n' "$HOME"
@@ -263,7 +254,7 @@ Codex will launch both commands itself. You do not need to keep two extra termin
 In the same EL9 shell, select your analysis's exact release and source any generated local build setup:
 
 ```bash
-cd /work/pi_YOUR_PI/YOUR_USERNAME/atlas
+cd "/work/${USER_PI}/${USER}/atlas"
 asetup AnalysisBase,REPLACE_WITH_YOUR_TESTED_VERSION
 # If needed, use your real generated setup path:
 # source /absolute/path/to/build/PLATFORM/setup.sh
@@ -345,7 +336,7 @@ Destroying a local proxy file removes that copy; it does not revoke every token 
 After obtaining resources and entering EL9, the recurring steps are:
 
 ```bash
-cd /work/pi_YOUR_PI/YOUR_USERNAME/atlas
+cd "/work/${USER_PI}/${USER}/atlas"
 export PATH="$HOME/.local/bin:$PATH"
 MCP_DIR="$HOME/.local/share/unity-atlas-mcp"
 umask 077

@@ -31,7 +31,7 @@
     <article><p>A batch job needs the same environment as an interactive session. Slurm starts the job on an allocated <strong>Ubuntu compute node</strong>; the job loads Apptainer, enters <strong>EL9</strong>, selects an ATLAS release, and runs the analysis there.</p>
 <p>You submit with <code>sbatch</code> from a Unity login node. There is no preceding <code>salloc</code>, and you can disconnect after submission. The batch allocation and its wall-time limit are managed by Slurm.</p>
 <div class="callout">
-<p><strong>Prerequisite:</strong> first complete <a href="../setting-up-environment/">Setting up the environment</a> and choose an exact ATLAS release that works for your analysis. Rafael has tested that interactive recipe on Unity. The batch example below has passed local syntax and simulated execution checks; its first end-to-end Unity run is still pending.</p>
+<p><strong>Prerequisite:</strong> first complete <a href="../setting-up-environment/">Setting up the environment</a>, including the one-time directories and <a href="../setting-up-environment/#bashrc"><code>.bashrc</code> settings</a>, and choose an exact ATLAS release that works for your analysis. This chapter uses your saved <code>USER_PI</code>, Unity <code>$USER</code>, and <code>ATLAS_WORKDIR</code>. Rafael has tested the interactive recipe on Unity. The batch example below has passed local syntax and simulated execution checks; its first end-to-end Unity run is still pending.</p>
 </div>
 <h2 id="workflow">1. Separate scheduling from the analysis</h2>
 <p>The example uses two files:</p>
@@ -68,9 +68,8 @@ source &quot;$ATLAS_LOCAL_ROOT_BASE/user/atlasLocalSetup.sh&quot; \
 <p>This is the scripted equivalent of <code>setupATLAS -c el9</code>, followed by commands inside the container. Simply writing <code>setupATLAS -c el9</code> on one line and your analysis on the next does not put that next line inside the container. Keep the analysis in the command passed to <code>-r</code>.</p>
 <p>The <a href="https://github.com/usatlas/af-benchmarking/blob/main/README.md">US ATLAS benchmarking examples</a> use this non-interactive interface. Our wrapper adapts it to Unity's module and Slurm configuration.</p>
 <h2 id="prepare">2. Prepare a shared job directory</h2>
-<p>Start from a <strong>fresh Ubuntu login shell</strong>, outside an interactive ATLAS container. Replace <code>pi_YOUR_PI</code> with your actual Unity group directory, as in the first chapter:</p>
+<p>Start from a <strong>fresh Ubuntu login shell</strong>, outside an interactive ATLAS container. Your <code>.bashrc</code> already defines <code>ATLAS_WORKDIR="/work/${USER_PI}/${USER}/atlas"</code>; create a job subdirectory there:</p>
 <pre class="bash"><code># Unity login node
-export ATLAS_WORKDIR=&quot;/work/pi_YOUR_PI/$USER/atlas&quot;
 mkdir -p &quot;$ATLAS_WORKDIR/jobs/atlas-test&quot;
 cd &quot;$ATLAS_WORKDIR/jobs/atlas-test&quot;
 mkdir -p logs
@@ -97,11 +96,13 @@ curl --fail --location --output run-atlas.sh \
 #SBATCH --export=NONE
 
 # This script runs on the allocated Ubuntu worker node.
-if [[ $# -ne 1 || $1 != *,* ]]; then
-    echo &quot;Usage: sbatch atlas-job.sbatch AnalysisBase,VERSION&quot; &gt;&amp;2
+if [[ $# -ne 2 || $1 != *,* || -z $2 ]]; then
+    echo &#39;Usage: sbatch atlas-job.sbatch AnalysisBase,VERSION &quot;$USER_PI&quot;&#39; &gt;&amp;2
     exit 2
 fi
 unity_atlas_release=$1
+unity_atlas_pi=$2
+unity_atlas_user=${SLURM_JOB_USER:?Missing Slurm username}
 cd &quot;${SLURM_SUBMIT_DIR:?Submit from your shared job directory}&quot; || exit 1
 unity_atlas_payload=&quot;$PWD/run-atlas.sh&quot;
 if [[ ! -r &quot;$unity_atlas_payload&quot; ]]; then
@@ -122,16 +123,16 @@ fi
 # Enable NVIDIA passthrough only when this job has allocated GPUs.
 if [[ -n ${SLURM_JOB_GPUS:-} ]]; then
     export ALRB_CONT_CMDOPTS=&quot;${ALRB_CONT_CMDOPTS:+$ALRB_CONT_CMDOPTS }--nv&quot;
-    if [[ -n ${CUDA_VISIBLE_DEVICES:-} ]]; then
+    if [[ ${CUDA_VISIBLE_DEVICES+x} ]]; then
         export APPTAINERENV_CUDA_VISIBLE_DEVICES=&quot;$CUDA_VISIBLE_DEVICES&quot;
     fi
 fi
 
 # Pass arguments explicitly; do not depend on host variables surviving
 # the container&#39;s environment filtering. %q quotes each Bash argument.
-printf -v unity_atlas_command &#39;bash %q %q %q %q&#39; \
+printf -v unity_atlas_command &#39;bash %q %q %q %q %q %q&#39; \
     &quot;$unity_atlas_payload&quot; &quot;$unity_atlas_release&quot; &quot;$unity_atlas_run_dir&quot; \
-    &quot;${SLURM_CPUS_PER_TASK:-1}&quot;
+    &quot;${SLURM_CPUS_PER_TASK:-1}&quot; &quot;$unity_atlas_pi&quot; &quot;$unity_atlas_user&quot;
 printf &#39;Job %s on %s; release %s; output %s\n&#39; \
     &quot;$SLURM_JOB_ID&quot; &quot;$(hostname)&quot; &quot;$unity_atlas_release&quot; &quot;$unity_atlas_run_dir&quot;
 cd &quot;$unity_atlas_run_dir&quot; || exit 1
@@ -143,7 +144,7 @@ source &quot;$ATLAS_LOCAL_ROOT_BASE/user/atlasLocalSetup.sh&quot; \
 unity_atlas_status=$?
 printf &#39;Container command exited with status %s\n&#39; &quot;$unity_atlas_status&quot;
 exit &quot;$unity_atlas_status&quot;</code></pre>
-<p>The wrapper sources ATLASLocalRootBase explicitly instead of depending on the interactive <code>setupATLAS</code> alias in <code>.bashrc</code>. The <code>--export=NONE</code> directive avoids importing the submission shell's full environment; Slurm still supplies its job variables and may initialize the user's login environment. This is not a completely empty environment. Keep software and container startup out of your shell startup files, as described in the first chapter.</p>
+<p>The wrapper sources ATLASLocalRootBase explicitly instead of depending on the interactive <code>setupATLAS</code> alias in <code>.bashrc</code>. The <code>--export=NONE</code> directive avoids importing the submission shell's full environment; Slurm still supplies its job variables and may initialize the user's login environment. This is not a completely empty environment. The submission commands pass your saved <code>USER_PI</code> as an argument; the wrapper obtains your username from <code>SLURM_JOB_USER</code> and passes both into the payload. This keeps <code>/work/${USER_PI}/${USER}</code> and <code>/project/${USER_PI}/${USER}</code> usable in scripts without relying on <code>.bashrc</code> being read there. Keep software and container startup out of your shell startup files, as described in the first chapter.</p>
 <p><code>/work</code> is already visible inside the tested Unity container, so the standard command needs no <code>-m /work</code>. If you use another filesystem that is missing inside EL9, add the corresponding <code>-m /actual/path</code> to the container launch.</p>
 <p>This is a <strong>single-node, single-process</strong> job. Slurm already runs the batch script on the worker, so it does not need an additional <code>srun</code> for this example. MPI and multiple simultaneous tasks require a different launch pattern. If you later introduce <code>srun</code>, note that this script uses <code>--export=NONE</code>: use <code>srun --export=ALL ...</code> when the step needs the environment you have prepared.</p>
 <h2 id="payload">4. The script inside EL9</h2>
@@ -153,6 +154,9 @@ exit &quot;$unity_atlas_status&quot;</code></pre>
 unity_atlas_release=${1:?Missing ATLAS project and version}
 unity_atlas_run_dir=${2:?Missing output directory}
 unity_atlas_cpus=${3:-1}
+# These were passed explicitly, not inherited from an interactive .bashrc.
+export USER_PI=${4:?Missing Unity PI directory}
+export USER=${5:?Missing Unity username}
 cd &quot;$unity_atlas_run_dir&quot; || exit 1
 # Do not let a sourced setup script interpret the payload&#39;s arguments.
 set --
@@ -204,7 +208,7 @@ printf &#39;Payload finished successfully.\n&#39;</code></pre>
 <pre class="bash"><code># Still in the directory containing both scripts and logs/.
 read -r -p &#39;Tested ATLAS project,version: &#39; ATLAS_RELEASE
 if [[ &quot;$ATLAS_RELEASE&quot; == *,* ]]; then
-    if JOB_ID=$(sbatch --parsable atlas-job.sbatch &quot;$ATLAS_RELEASE&quot;); then
+    if JOB_ID=$(sbatch --parsable atlas-job.sbatch &quot;$ATLAS_RELEASE&quot; &quot;$USER_PI&quot;); then
         JOB_ID=${JOB_ID%%;*}
         printf &#39;Submitted job: %s\n&#39; &quot;$JOB_ID&quot;
     fi
@@ -234,10 +238,10 @@ ls -lh &quot;runs/${JOB_ID}/hist.root&quot;</code></pre>
 <pre class="bash"><code>scancel &quot;$JOB_ID&quot;</code></pre>
 <h2 id="analysis">6. Replace the test with your analysis</h2>
 <p>Replace the Python block and the <code>test -s hist.root</code> check in <code>run-atlas.sh</code> with your analysis command and an appropriate output check. Keep the release setup and run-directory change. Relative output paths then land in <code>runs/JOB_ID/</code>; use absolute paths for shared inputs and code.</p>
-<p>For example, after changing these paths to your own:</p>
+<p>For example, put your analysis code under your work directory and choose an input file from your project directory. <code>USER_PI</code> and <code>USER</code> are set by the supplied payload from the arguments passed by the worker script:</p>
 <pre class="bash"><code># Inside run-atlas.sh, after asetup and set -euo pipefail.
-python -u /work/pi_YOUR_PI/YOUR_USERNAME/atlas/analysis/run.py \
-    --input /work/pi_YOUR_PI/shared/input.root \
+python -u &quot;/work/${USER_PI}/${USER}/atlas/analysis/run.py&quot; \
+    --input &quot;/project/${USER_PI}/${USER}/input.root&quot; \
     --output result.root
 test -s result.root</code></pre>
 <p>If your analysis uses a compiled ATLAS package, build it in an EL9 allocation with the same release and platform, then source that build's exact <code>setup.sh</code> after <code>asetup</code> in the payload. Keep the build accessible on shared storage. Do not build the same directory concurrently from multiple jobs.</p>
@@ -245,13 +249,13 @@ test -s result.root</code></pre>
 <h3 id="adjust-cpu-memory-and-time">Adjust CPU, memory, and time</h3>
 <p>Command-line <code>sbatch</code> options override the corresponding <code>#SBATCH</code> directives. For example, once your analysis is configured to use four CPUs:</p>
 <pre class="bash"><code>sbatch --cpus-per-task=4 --mem=16G --time=02:00:00 \
-    atlas-job.sbatch &quot;$ATLAS_RELEASE&quot;</code></pre>
+    atlas-job.sbatch &quot;$ATLAS_RELEASE&quot; &quot;$USER_PI&quot;</code></pre>
 <p>Requesting four CPUs does not automatically parallelize Python or ROOT. The example passes the CPU allocation into the container and sets <code>OMP_NUM_THREADS</code>; configure your application's own thread or worker count as needed. Keep that count within the allocation. <code>--mem</code> here is memory per node, not per CPU.</p>
 <p>Keep directives at the top of the file, before shell commands. Slurm reads them before executing Bash, so <code>#SBATCH --output=$HOME/...</code> does not expand <code>$HOME</code>. Use a literal path, a Slurm filename token such as <code>%j</code> (job ID), or an option on the <code>sbatch</code> command line.</p>
 <h3 id="request-an-nvidia-gpu">Request an NVIDIA GPU</h3>
-<p>The same wrapper detects an allocated GPU through <code>SLURM_JOB_GPUS</code>, appends <code>--nv</code> to <code>ALRB_CONT_CMDOPTS</code>, and forwards Slurm's <code>CUDA_VISIBLE_DEVICES</code> selection when present. This uses the explicit passthrough option tested successfully in the <a href="../setting-up-environment/#gpu">interactive GPU recipe</a>. The batch script sets it itself and does not depend on the optional <code>.bashrc</code> function. Request the GPU at submission:</p>
+<p>The same wrapper detects an allocated GPU through <code>SLURM_JOB_GPUS</code>, appends <code>--nv</code> to <code>ALRB_CONT_CMDOPTS</code>, and forwards Slurm's <code>CUDA_VISIBLE_DEVICES</code> selection when present. This uses the explicit passthrough option tested successfully in the <a href="../setting-up-environment/#gpu">interactive GPU recipe</a>. The batch script sets it itself; <code>atlas_gpu</code> remains the shortcut for interactive shells. Request the GPU at submission:</p>
 <pre class="bash"><code>sbatch --partition=gpu --gpus=1 --cpus-per-task=4 \
-    --mem=16G --time=02:00:00 atlas-job.sbatch &quot;$ATLAS_RELEASE&quot;</code></pre>
+    --mem=16G --time=02:00:00 atlas-job.sbatch &quot;$ATLAS_RELEASE&quot; &quot;$USER_PI&quot;</code></pre>
 <p>Add <code>nvidia-smi</code> after setup inside <code>run-atlas.sh</code> to inspect device visibility, then use a CUDA-capable application and compatible software environment. The provided histogram test runs on the CPU even when a GPU is allocated; it does not validate a GPU framework. Do not replace Slurm's device selection with a hard-coded GPU number.</p>
 <h2 id="troubleshooting">Troubleshooting</h2>
 <table>

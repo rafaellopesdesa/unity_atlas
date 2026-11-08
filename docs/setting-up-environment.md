@@ -15,7 +15,27 @@ ssh YOUR_UNITY_USERNAME@login.unityhpc.org
 
 Follow Unity's [SSH guide](https://docs.unity.rc.umass.edu/documentation/connecting/ssh/) for account and SSH-key setup. Use the login node to prepare and submit work; run builds, event processing, and training on allocated compute nodes.
 
-## 2. Request compute resources {#allocate}
+## 2. Create your working directories once {#directories}
+
+On the **Unity login node**, set `USER_PI` to your PI's existing Unity directory name. For example, Rafael's group uses `rclsa_umass_edu`; substitute your own PI directory for `YOUR_PI`. `$USER` is already your Unity username after logging in, so leave it as a variable.
+
+```bash
+# Unity login node — replace YOUR_PI, for example with rclsa_umass_edu.
+export USER_PI=YOUR_PI
+mkdir -p "/work/${USER_PI}/${USER}"
+mkdir -p "/project/${USER_PI}/${USER}"
+
+# The examples throughout this manual use this analysis subdirectory.
+mkdir -p "/work/${USER_PI}/${USER}/atlas"
+```
+
+**Create these directories only once**, not for every allocation or container. `mkdir -p` also succeeds if they already exist. Your PI's storage allocation must already be provisioned and accessible; these commands create your own subdirectories, not a new storage allocation.
+
+Add your edited `export USER_PI=...` line to your existing `~/.bashrc` so the choice persists across sessions. The complete [shell configuration below](#bashrc) includes this line and defines `ATLAS_WORKDIR="/work/${USER_PI}/${USER}/atlas"`; keep a single definition of each when merging it. Directory creation stays outside `.bashrc`.
+
+Throughout the manual, `/work/${USER_PI}/${USER}` is your personal work area and `/project/${USER_PI}/${USER}` is your personal area in your PI's project allocation. Use `/work` or Unity's [scratch service](https://docs.unity.rc.umass.edu/documentation/managing-files/hpc-workspace/) for active job I/O. Consult the [storage guide](https://docs.unity.rc.umass.edu/documentation/cluster_specs/storage/) for quotas and retention.
+
+## 3. Request compute resources {#allocate}
 
 Choose **one** of the following commands on the login node. Adjust the resource request to your workload.
 
@@ -56,7 +76,7 @@ The hostname should be a compute node in your allocation. If you are still on a 
 
 This guide targets **x86_64** nodes. Containers do not translate CPU architectures; ARM and POWER partitions need compatible software and images. `gpu-preempt` is an alternative when interruption is acceptable. Consult the current [partition list](https://docs.unity.rc.umass.edu/documentation/cluster_specs/partitions/) and [GPU guide](https://docs.unity.rc.umass.edu/documentation/tools/gpus/) before choosing constraints or preemptible resources.
 
-## 3. Prepare the host environment {#prepare-host}
+## 4. Prepare the host environment {#prepare-host}
 
 Run the following in the **Ubuntu compute-node shell**, before entering a container:
 
@@ -67,6 +87,10 @@ apptainer --version
 export ATLAS_LOCAL_ROOT_BASE=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase
 alias setupATLAS='source ${ATLAS_LOCAL_ROOT_BASE}/user/atlasLocalSetup.sh'
 
+# Forward the directory variables explicitly into Apptainer.
+export APPTAINERENV_USER_PI="$USER_PI"
+export APPTAINERENV_USER="$USER"
+
 ls -l "$ATLAS_LOCAL_ROOT_BASE/user/atlasLocalSetup.sh"
 ```
 
@@ -76,19 +100,19 @@ Start from a clean host shell. Deactivate any Conda or Python virtual environmen
 
 ### Choose a work directory
 
-Replace `pi_YOUR_PI` with your actual Unity group directory. Do not run the placeholder unchanged.
+Use the analysis subdirectory you created in the one-time setup:
 
 ```bash
-# Ubuntu compute node — edit the group directory first
-export ATLAS_WORKDIR="/work/pi_YOUR_PI/$USER/atlas"
-mkdir -p "$ATLAS_WORKDIR"
+# Ubuntu compute node
+export ATLAS_WORKDIR="/work/${USER_PI}/${USER}/atlas"
+export APPTAINERENV_ATLAS_WORKDIR="$ATLAS_WORKDIR"
 cd "$ATLAS_WORKDIR"
 pwd -P
 ```
 
-Use `/work` or a workspace allocated through Unity's [scratch service](https://docs.unity.rc.umass.edu/documentation/managing-files/hpc-workspace/) for active job I/O. Keep shell configuration in your home directory. Consult the [storage guide](https://docs.unity.rc.umass.edu/documentation/cluster_specs/storage/) for quotas, retention, and moving data from longer-term storage.
+Keep shell configuration in your home directory. Subsequent chapters assume the [shell configuration below](#bashrc) is installed, so they reuse `ATLAS_WORKDIR` and the allocation/container shortcuts.
 
-## 4. Enter the EL9 container {#container}
+## 5. Enter the EL9 container {#container}
 
 For a CPU session, run:
 
@@ -112,9 +136,11 @@ type lsetup
 type asetup
 ls /cvmfs/atlas.cern.ch/repo
 ls /work
+printf 'PI: %s\nUser: %s\n' "$USER_PI" "$USER"
+cd "/work/${USER_PI}/${USER}/atlas"
 ```
 
-Expect an EL9 distribution and `x86_64`. A container shares the host kernel, so `uname -r` is **not** a test of its Linux distribution. The launcher may map the working directory to `/srv` and use a different home path. Check `pwd` and access to your `/work/...` directory. Host variables such as `ATLAS_WORKDIR` need not be preserved.
+Expect an EL9 distribution and `x86_64`. A container shares the host kernel, so `uname -r` is **not** a test of its Linux distribution. The launcher may initially map the working directory to `/srv` and use a different home path. The explicit `cd` returns to the shared analysis directory. The `APPTAINERENV_` exports above preserve `USER_PI`, `USER`, and `ATLAS_WORKDIR` inside Apptainer; other host variables need not be preserved. If you need project files, also check that `/project/${USER_PI}/${USER}` is visible, using the mount guidance above if needed.
 
 If `lsetup` is unavailable despite a successful container launch, initialize the interface explicitly **inside** that container:
 
@@ -127,7 +153,7 @@ source "$ATLAS_LOCAL_ROOT_BASE/user/atlasLocalSetup.sh"
 **Two separate choices.** The container selects the operating-system environment. `asetup` selects an ATLAS software release. Entering EL9 does not by itself load AnalysisBase, AthAnalysis, or Athena.
 :::
 
-## 5. Load analysis software {#software}
+## 6. Load analysis software {#software}
 
 Choose the environment needed by your analysis. Use a fresh container session when switching between unrelated software stacks.
 
@@ -169,7 +195,7 @@ python -c 'import ROOT; print(ROOT.gROOT.GetVersion())'
 
 Use the ROOT and Python supplied by the release. Keep standalone `lsetup root` and release setup in separate sessions. Record the project, version, platform, and container information with your code; record the resolved image from the launcher output if you need to reproduce the precise container as well.
 
-## 6. Enable GPU access {#gpu}
+## 7. Enable GPU access {#gpu}
 
 For an **NVIDIA GPU allocation**, use this launch sequence in place of the CPU container command. First check the host:
 
@@ -185,8 +211,11 @@ Pass **`--nv` explicitly to the container runtime through `ALRB_CONT_CMDOPTS`**.
 # Ubuntu GPU compute node; module load apptainer/latest was done above.
 (
     export ALRB_CONT_CMDOPTS="${ALRB_CONT_CMDOPTS:+$ALRB_CONT_CMDOPTS }--nv"
-    if [[ -n ${CUDA_VISIBLE_DEVICES:-} ]]; then
+    if [[ ${CUDA_VISIBLE_DEVICES+x} ]]; then
         export APPTAINERENV_CUDA_VISIBLE_DEVICES="$CUDA_VISIBLE_DEVICES"
+    fi
+    if [[ ${CUDA_DEVICE_ORDER+x} ]]; then
+        export APPTAINERENV_CUDA_DEVICE_ORDER="$CUDA_DEVICE_ORDER"
     fi
     setupATLAS -c el9
 )
@@ -210,14 +239,22 @@ GPU visibility does not install a CUDA-enabled analysis framework, or make ordin
 
 The next section puts this launch sequence in a reusable `.bashrc` function so you only need to type `atlas_gpu` on the allocated node.
 
-## 7. Add optional shell shortcuts {#bashrc}
+## 8. Save your shell configuration {#bashrc}
 
-Add the following to **your existing** `~/.bashrc` on Unity. These lines define commands; they do not allocate resources or start software at login. The same snippet is available as [atlas-bashrc.sh](../examples/atlas-bashrc.sh).
+Add the following to **your existing** `~/.bashrc` on Unity, replacing `YOUR_PI` with your actual PI directory (for example, `rclsa_umass_edu`). If you already added `USER_PI` above, keep just one edited definition. These lines save the directory settings and define commands; they do not create directories, allocate resources, or start software at login. **The remaining chapters assume this configuration is in place.** The same snippet is available as [atlas-bashrc.sh](../examples/atlas-bashrc.sh).
 
 ```bash
 # Add to your existing ~/.bashrc on Unity; do not replace that file.
 # This defines shortcuts only. It does not start a container or allocate a job.
+# Replace YOUR_PI with your Unity PI directory, for example rclsa_umass_edu.
+export USER_PI=YOUR_PI
+export ATLAS_WORKDIR="/work/${USER_PI}/${USER}/atlas"
 export ATLAS_LOCAL_ROOT_BASE=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase
+
+# Keep these path variables available even when Apptainer cleans the environment.
+export APPTAINERENV_USER_PI="$USER_PI"
+export APPTAINERENV_USER="$USER"
+export APPTAINERENV_ATLAS_WORKDIR="$ATLAS_WORKDIR"
 
 if [[ $- == *i* ]]; then
     alias setupATLAS='source ${ATLAS_LOCAL_ROOT_BASE}/user/atlasLocalSetup.sh'
@@ -229,15 +266,15 @@ if [[ $- == *i* ]]; then
     atlas_gpu() (
         module load apptainer/latest || return "$?"
         export ALRB_CONT_CMDOPTS="${ALRB_CONT_CMDOPTS:+$ALRB_CONT_CMDOPTS }--nv"
-        if [[ -n ${CUDA_VISIBLE_DEVICES:-} ]]; then
+        if [[ ${CUDA_VISIBLE_DEVICES+x} ]]; then
             export APPTAINERENV_CUDA_VISIBLE_DEVICES="$CUDA_VISIBLE_DEVICES"
+        fi
+        if [[ ${CUDA_DEVICE_ORDER+x} ]]; then
+            export APPTAINERENV_CUDA_DEVICE_ORDER="$CUDA_DEVICE_ORDER"
         fi
         source "$ATLAS_LOCAL_ROOT_BASE/user/atlasLocalSetup.sh" -c el9 "$@"
     )
 fi
-
-# Optional: uncomment and edit your actual group directory first.
-# export ATLAS_WORKDIR="/work/pi_YOUR_PI/$USER/atlas"
 ```
 
 Reload it in the **host shell** with `source ~/.bashrc`. The GPU workflow is then:
@@ -252,15 +289,15 @@ cd "$ATLAS_WORKDIR"
 atlas_gpu
 ```
 
-Set `ATLAS_WORKDIR` to your actual path first, using the optional export at the bottom of the snippet or the work-directory instructions above. If your allocated shell has not loaded the new function yet, run `source ~/.bashrc` there.
+`ATLAS_WORKDIR` is derived from your saved `USER_PI` and Unity `$USER`. If your allocated shell has not loaded the settings or function yet, run `source ~/.bashrc` there. The `APPTAINERENV_` exports preserve the directory variables when the container starts.
 
 `unity_gpu` requests resources; `atlas_gpu` loads Apptainer and starts EL9 with `--nv` on the allocated node. The function preserves existing `ALRB_CONT_CMDOPTS` options, passes the current allocation's `CUDA_VISIBLE_DEVICES`, and confines the exports to its subshell. Adding the definition to `.bashrc` does not start a container at login. You can pass extra ATLAS container arguments, for example `atlas_gpu -m /another/path` if a required path is not already visible.
 
 For CPU work, continue to use `unity_cpu`, then the host preparation and `setupATLAS -c el9` commands above.
 
-You may also add your edited `ATLAS_WORKDIR` export. Keep module loading and software startup inside explicitly invoked commands or functions, rather than executing them automatically when `.bashrc` is read. This avoids unexpected containers or incompatible software environments when starting new shells. In scripts, source `atlasLocalSetup.sh` explicitly; non-interactive Bash does not normally expand aliases.
+Keep module loading and software startup inside explicitly invoked commands or functions, rather than executing them automatically when `.bashrc` is read. This avoids unexpected containers or incompatible software environments when starting new shells. Batch scripts and SSH launchers still initialize their own environment explicitly; non-interactive Bash does not normally expand aliases.
 
-## 8. End or reconnect to a session {#sessions}
+## 9. End or reconnect to a session {#sessions}
 
 Run `exit` inside the container to return to the Ubuntu compute-node shell. Run `exit` again to leave the interactive allocation and release its resources. A new allocation requires a new container and software setup; files in your work directory remain.
 

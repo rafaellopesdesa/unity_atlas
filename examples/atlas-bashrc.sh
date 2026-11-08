@@ -1,6 +1,14 @@
 # Add to your existing ~/.bashrc on Unity; do not replace that file.
 # This defines shortcuts only. It does not start a container or allocate a job.
+# Replace YOUR_PI with your Unity PI directory, for example rclsa_umass_edu.
+export USER_PI=YOUR_PI
+export ATLAS_WORKDIR="/work/${USER_PI}/${USER}/atlas"
 export ATLAS_LOCAL_ROOT_BASE=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase
+
+# Keep these path variables available even when Apptainer cleans the environment.
+export APPTAINERENV_USER_PI="$USER_PI"
+export APPTAINERENV_USER="$USER"
+export APPTAINERENV_ATLAS_WORKDIR="$ATLAS_WORKDIR"
 
 if [[ $- == *i* ]]; then
     alias setupATLAS='source ${ATLAS_LOCAL_ROOT_BASE}/user/atlasLocalSetup.sh'
@@ -12,12 +20,13 @@ if [[ $- == *i* ]]; then
     atlas_gpu() (
         module load apptainer/latest || return "$?"
         export ALRB_CONT_CMDOPTS="${ALRB_CONT_CMDOPTS:+$ALRB_CONT_CMDOPTS }--nv"
-        if [[ -n ${CUDA_VISIBLE_DEVICES:-} ]]; then
+        if [[ ${CUDA_VISIBLE_DEVICES+x} ]]; then
             export APPTAINERENV_CUDA_VISIBLE_DEVICES="$CUDA_VISIBLE_DEVICES"
+        fi
+        if [[ ${CUDA_DEVICE_ORDER+x} ]]; then
+            export APPTAINERENV_CUDA_DEVICE_ORDER="$CUDA_DEVICE_ORDER"
         fi
         source "$ATLAS_LOCAL_ROOT_BASE/user/atlasLocalSetup.sh" -c el9 "$@"
     )
 fi
 
-# Optional: uncomment and edit your actual group directory first.
-# export ATLAS_WORKDIR="/work/pi_YOUR_PI/$USER/atlas"

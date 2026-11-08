@@ -65,36 +65,30 @@
 </tbody>
 </table>
 <p>You need a Unity account and group work directory, an OpenAI sign-in method enabled for Codex, an active ATLAS grid identity, and a valid grid certificate/private key. Your certificate identity must be registered for the ATLAS services you use. A Unity login, CERN password, or Codex login does not replace the grid credential.</p>
+<p>Complete <a href="../setting-up-environment/">Setting up the environment</a> first, including the one-time creation of your work/project directories and the <a href="../setting-up-environment/#bashrc"><code>.bashrc</code> configuration</a>. This chapter uses its <code>USER_PI</code> and <code>ATLAS_WORKDIR</code> exports, your Unity <code>$USER</code>, and the <code>unity_cpu</code>, <code>unity_gpu</code>, <code>setupATLAS</code>, and <code>atlas_gpu</code> commands.</p>
 <p>The compute node needs outbound connectivity to the sign-in/model service and ATLAS endpoints; installation additionally needs access to the package sources. This chapter starts with <strong>dataset discovery and metadata queries</strong>: Rucio MCP is explicitly launched in read-only mode.</p>
 <h2 id="container">2. Allocate resources and enter EL9</h2>
 <p>From your computer, connect to Unity:</p>
 <pre class="bash"><code>ssh YOUR_UNITY_USERNAME@login.unityhpc.org</code></pre>
 <p>For a session that can survive an SSH disconnect, start <code>tmux new -s atlas-codex</code> on the login node first and record its hostname. Then request resources:</p>
 <pre class="bash"><code># Unity login node
-salloc --partition=cpu --nodes=1 --ntasks=1 \
-  --cpus-per-task=4 --mem=16G --time=02:00:00</code></pre>
-<p>Once Unity gives you a compute-node shell, check <code>hostname -f</code> and <code>echo "$SLURM_JOB_ID"</code>. Replace the group path below, then start the container:</p>
+unity_cpu</code></pre>
+<p>The default helper requests four CPUs, 16 GB of memory, and two hours. Once Unity gives you a compute-node shell, check <code>hostname -f</code> and <code>echo "$SLURM_JOB_ID"</code>, then start the container. If this new shell has not loaded your configuration, run <code>source ~/.bashrc</code> first.</p>
 <pre class="bash"><code># Ubuntu compute node
 module load apptainer/latest
-export ATLAS_LOCAL_ROOT_BASE=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase
-mkdir -p &quot;/work/pi_YOUR_PI/$USER/atlas&quot;
-cd &quot;/work/pi_YOUR_PI/$USER/atlas&quot;
-source &quot;$ATLAS_LOCAL_ROOT_BASE/user/atlasLocalSetup.sh&quot; -c el9</code></pre>
-<p>For GPU analysis, use a GPU allocation instead of the CPU allocation:</p>
-<pre class="bash"><code>salloc --partition=gpu --nodes=1 --ntasks=1 --gpus=1 \
-  --cpus-per-task=4 --mem=16G --time=02:00:00</code></pre>
-<p>Then replace the last CPU container-launch command with this sequence on the allocated Ubuntu node, after the same module/path preparation:</p>
-<pre class="bash"><code>(
-    export ALRB_CONT_CMDOPTS=&quot;${ALRB_CONT_CMDOPTS:+$ALRB_CONT_CMDOPTS }--nv&quot;
-    if [[ ${CUDA_VISIBLE_DEVICES+x} ]]; then
-        export APPTAINERENV_CUDA_VISIBLE_DEVICES=&quot;$CUDA_VISIBLE_DEVICES&quot;
-    fi
-    source &quot;$ATLAS_LOCAL_ROOT_BASE/user/atlasLocalSetup.sh&quot; -c el9
-)</code></pre>
-<p>The optional <code>atlas_gpu</code> helper from <a href="../setting-up-environment/#bashrc">Setting up the environment</a> performs the standard GPU launch. <code>/work</code> is already visible in the tested Unity container setup, so no additional <code>-m /work</code> is normally required.</p>
-<p>Inside EL9, explicitly enter your actual project directory and check the environment:</p>
-<pre class="bash"><code># Inside EL9 — use your actual paths
-cd /work/pi_YOUR_PI/YOUR_USERNAME/atlas
+cd &quot;$ATLAS_WORKDIR&quot;
+setupATLAS -c el9</code></pre>
+<p>For GPU analysis, use this alternative sequence. <code>unity_gpu</code> requests one GPU with the same CPU, memory, and time limits; <code>atlas_gpu</code> loads Apptainer and supplies the tested GPU passthrough options:</p>
+<pre class="bash"><code># Unity login node
+unity_gpu
+
+# After allocation, on the Ubuntu GPU compute node
+cd &quot;$ATLAS_WORKDIR&quot;
+atlas_gpu</code></pre>
+<p><code>/work</code> is already visible in the tested Unity container setup, so no additional <code>-m /work</code> is normally required.</p>
+<p>Inside EL9, explicitly enter the project directory and check the environment:</p>
+<pre class="bash"><code># Inside EL9
+cd &quot;/work/${USER_PI}/${USER}/atlas&quot;
 cat /etc/os-release
 uname -m
 printf &#39;Container home: %s\n&#39; &quot;$HOME&quot;</code></pre>
@@ -213,7 +207,7 @@ codex mcp get atlas-ami</code></pre>
 <p>Codex will launch both commands itself. You do not need to keep two extra terminals open running <code>rucio-mcp serve</code> and <code>ami-mcp serve</code>, start them in the background, or expose a network port. A manually started stdio server waiting silently for protocol input is not an interactive command prompt.</p>
 <h2 id="start">7. Load ATLAS and start Codex</h2>
 <p>In the same EL9 shell, select your analysis's exact release and source any generated local build setup:</p>
-<pre class="bash"><code>cd /work/pi_YOUR_PI/YOUR_USERNAME/atlas
+<pre class="bash"><code>cd &quot;/work/${USER_PI}/${USER}/atlas&quot;
 asetup AnalysisBase,REPLACE_WITH_YOUR_TESTED_VERSION
 # If needed, use your real generated setup path:
 # source /absolute/path/to/build/PLATFORM/setup.sh
@@ -266,7 +260,7 @@ exit
 <p>Destroying a local proxy file removes that copy; it does not revoke every token already issued using it. The workflow relies on short-lived credentials and ending the associated client processes.</p>
 <h3 id="short-sequence-for-later-sessions">Short sequence for later sessions</h3>
 <p>After obtaining resources and entering EL9, the recurring steps are:</p>
-<pre class="bash"><code>cd /work/pi_YOUR_PI/YOUR_USERNAME/atlas
+<pre class="bash"><code>cd &quot;/work/${USER_PI}/${USER}/atlas&quot;
 export PATH=&quot;$HOME/.local/bin:$PATH&quot;
 MCP_DIR=&quot;$HOME/.local/share/unity-atlas-mcp&quot;
 umask 077

@@ -42,35 +42,32 @@ ssh unity
 
 If Windows OpenSSH reports `Corrupted MAC on input`, Unity documents adding `MACs hmac-sha2-512` to the affected SSH host entries. Apply that workaround only for that error.
 
-The optional [Bash shortcuts](../setting-up-environment/#bashrc) are useful in interactive terminals. **Do not automatically run `salloc`, enter a container, or select an ATLAS release every time `.bashrc` is read.** SSH and VS Code also start noninteractive shells; keep these actions in functions that you call explicitly.
+Complete the [one-time directory setup](../setting-up-environment/#directories) and [Bash configuration](../setting-up-environment/#bashrc) first. This chapter assumes `USER_PI`, `ATLAS_WORKDIR="/work/${USER_PI}/${USER}/atlas"`, and the `unity_cpu`, `unity_gpu`, `setupATLAS`, and `atlas_gpu` helpers are already defined. In a Unity terminal, `$USER` is your Unity username; your local SSH configuration still needs that literal username. **Do not automatically run `salloc`, enter a container, or select an ATLAS release every time `.bashrc` is read.** SSH and VS Code also start noninteractive shells; keep these actions in commands you call explicitly.
 
 ## Request a compute session {#allocation}
 
 In the Unity login shell, request a single compute node. For example, for CPU work:
 
 ```bash
-salloc --partition=cpu --nodes=1 --ntasks=1 \
-  --cpus-per-task=4 --mem=16G --time=02:00:00
+unity_cpu
 ```
 
 Or, for a GPU session, use this allocation instead:
 
 ```bash
-salloc --partition=gpu --nodes=1 --ntasks=1 --gpus=1 \
-  --cpus-per-task=4 --mem=16G --time=02:00:00
+unity_gpu
 ```
 
-Wait for the allocation. Unity's interactive setup puts you in a shell on the allocated node. Record the hostname and job ID, then choose a writable group work directory:
+Wait for the allocation. Unity's interactive setup puts you in a shell on the allocated node. Record the hostname and job ID, then enter the analysis directory configured in `.bashrc`:
 
 ```bash
 hostname -f
 printf 'Job: %s\n' "$SLURM_JOB_ID"
-export ATLAS_WORKDIR="/work/pi_YOUR_PI/$USER/atlas"
-mkdir -p "$ATLAS_WORKDIR"
 cd "$ATLAS_WORKDIR"
+printf 'Project folder: %s\n' "$ATLAS_WORKDIR"
 ```
 
-Replace `pi_YOUR_PI` with your actual group directory. Keep this allocation shell open. A `tmux` session on the login node, started before `salloc`, can protect it from a local network interruption; it does not extend the job's time limit.
+If the allocated shell has not loaded your configuration, run `source ~/.bashrc` there. Keep this allocation shell open. A `tmux` session on the login node, started before `salloc`, can protect it from a local network interruption; it does not extend the job's time limit.
 
 The examples below use **job `123456`** and **`cpu001.unity.rc.umass.edu`** as placeholders. Substitute the values from your allocation. Refresh them every time you start a new job.
 
@@ -78,7 +75,7 @@ The examples below use **job `123456`** and **`cpu001.unity.rc.umass.edu`** as p
 
 1. In local VS Code, open the Command Palette and run **Remote-SSH: Connect to Host…**.
 2. Enter the full hostname of your **allocated compute node**, for example `cpu001.unity.rc.umass.edu`. Select **Linux** if prompted.
-3. In the remote window, use **File → Open Folder…** and open your `/work/.../atlas` directory. The status bar should identify the compute-node SSH connection.
+3. In the remote window, use **File → Open Folder…** and paste the expanded **Project folder** path printed above. The status bar should identify the compute-node SSH connection.
 4. Open an integrated terminal and check `hostname -f`. To obtain an explicit shell in the existing job, use Unity's documented command with your job ID:
 
 ```bash
@@ -91,36 +88,22 @@ For a CPU session, run in the allocated Ubuntu shell:
 
 ```bash
 module load apptainer/latest
-export ATLAS_LOCAL_ROOT_BASE=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase
-source "$ATLAS_LOCAL_ROOT_BASE/user/atlasLocalSetup.sh" -c el9
+setupATLAS -c el9
 ```
 
-For a GPU session, use the following **instead**. The `--nv` option makes the host NVIDIA driver components and utilities available inside Apptainer. Preserve Slurm's device selection rather than assigning a new GPU number:
+For a GPU session, use the helper **instead**. It loads Apptainer, enables `--nv`, and forwards Slurm's device selection:
 
 ```bash
-module load apptainer/latest
-export ATLAS_LOCAL_ROOT_BASE=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase
-(
-    export ALRB_CONT_CMDOPTS="${ALRB_CONT_CMDOPTS:+$ALRB_CONT_CMDOPTS }--nv"
-    if [[ ${CUDA_VISIBLE_DEVICES+x} ]]; then
-        export APPTAINERENV_CUDA_VISIBLE_DEVICES="$CUDA_VISIBLE_DEVICES"
-        export SINGULARITYENV_CUDA_VISIBLE_DEVICES="$CUDA_VISIBLE_DEVICES"
-    fi
-    if [[ ${CUDA_DEVICE_ORDER+x} ]]; then
-        export APPTAINERENV_CUDA_DEVICE_ORDER="$CUDA_DEVICE_ORDER"
-        export SINGULARITYENV_CUDA_DEVICE_ORDER="$CUDA_DEVICE_ORDER"
-    fi
-    source "$ATLAS_LOCAL_ROOT_BASE/user/atlasLocalSetup.sh" -c el9
-)
+atlas_gpu
 ```
 
-If you installed the earlier `.bashrc` helpers, `atlas_gpu` is the shorter interactive equivalent. Unity already exposes `/work` in the tested ALRB setup, so an additional `-m /work` is not normally needed.
+These helpers are defined in the environment chapter. Unity already exposes `/work` in the tested ALRB setup, so an additional `-m /work` is not normally needed.
 
 Now, **inside EL9**, select the exact release used by your analysis:
 
 ```bash
 cat /etc/os-release
-cd /work/pi_YOUR_PI/YOUR_USERNAME/atlas
+cd "/work/${USER_PI}/${USER}/atlas"
 asetup AnalysisBase,REPLACE_WITH_YOUR_TESTED_VERSION
 python -c 'import sys, ROOT; print(sys.executable); print(ROOT.gROOT.GetVersion())'
 ```
@@ -169,6 +152,8 @@ ATLAS_VSCODE_CONFIG="$ATLAS_WORKDIR/vscode-job-${SLURM_JOB_ID}.sh"
         printf 'ATLAS_VSCODE_JOB_ID=%q\n' "$SLURM_JOB_ID"
         printf 'ATLAS_VSCODE_NODE=%q\n' "$(hostname -s)"
         printf 'ATLAS_VSCODE_CPUS=%q\n' "${SLURM_CPUS_PER_TASK:-1}"
+        printf 'ATLAS_VSCODE_USER_PI=%q\n' "$USER_PI"
+        printf 'ATLAS_VSCODE_USER=%q\n' "$USER"
         printf 'ATLAS_VSCODE_IMAGE=%q\n' "$ATLAS_VSCODE_IMAGE"
         printf 'ATLAS_VSCODE_RELEASE=%q\n' "$ATLAS_VSCODE_RELEASE"
         printf 'ATLAS_VSCODE_WORKDIR=%q\n' "$ATLAS_WORKDIR"
@@ -176,11 +161,15 @@ ATLAS_VSCODE_CONFIG="$ATLAS_WORKDIR/vscode-job-${SLURM_JOB_ID}.sh"
     } > "$ATLAS_VSCODE_CONFIG"
 )
 printf 'Configuration: %s\n' "$ATLAS_VSCODE_CONFIG"
+printf 'VS Code server directory: %s\n' \
+  "$ATLAS_WORKDIR/.vscode-el9-ssh/job-${SLURM_JOB_ID}"
 ```
+
+The configuration records the expanded work path and your `USER_PI`/`USER` values. The launcher forwards them into the clean container environment without depending on an interactive `.bashrc` being read during SSH startup.
 
 ### Connect through a dedicated SSH alias
 
-Add this entry to your **local** SSH configuration, replacing all placeholders, including the job ID in the configuration filename:
+Add this entry to your **local** SSH configuration. Replace the hostname and username with your allocation details, and replace `PASTE_ALLOCATION_CONFIG_PATH` with the complete **Configuration** path printed above. Local SSH configuration does not expand Unity's `$USER_PI` or `$USER`; paste the expanded remote path.
 
 ```sshconfig
 Host unity-atlas-el9
@@ -188,13 +177,13 @@ Host unity-atlas-el9
     User YOUR_USERNAME
     IdentityFile ~/.ssh/id_ed25519
     ProxyJump unity
-    RemoteCommand ~/.local/bin/atlas-vscode-ssh.sh /work/pi_YOUR_PI/YOUR_USERNAME/atlas/vscode-job-123456.sh
+    RemoteCommand ~/.local/bin/atlas-vscode-ssh.sh PASTE_ALLOCATION_CONFIG_PATH
     RequestTTY yes
 ```
 
 Use paths without spaces in this SSH entry. Keep `RemoteCommand` on this dedicated alias, so normal Unity SSH access is unaffected. Do not put `srun --pty` in `RemoteCommand`: VS Code needs its bootstrap input intact, and the backend must survive the bootstrap shell exiting.
 
-In **local VS Code User Settings (JSON)**, merge these settings with your existing configuration:
+In **local VS Code User Settings (JSON)**, merge these settings with your existing configuration. Replace `PASTE_SERVER_INSTALL_PATH` with the complete **VS Code server directory** printed above; this JSON value must be a literal remote path, not an expression containing `$USER_PI` or `$USER`:
 
 ```json
 {
@@ -202,7 +191,7 @@ In **local VS Code User Settings (JSON)**, merge these settings with your existi
   "remote.SSH.remoteServerListenOnSocket": false,
   "remote.SSH.lockfilesInTmp": true,
   "remote.SSH.serverInstallPath": {
-    "unity-atlas-el9": "/work/pi_YOUR_PI/YOUR_USERNAME/atlas/.vscode-el9-ssh/job-123456"
+    "unity-atlas-el9": "PASTE_SERVER_INSTALL_PATH"
   }
 }
 ```
@@ -220,7 +209,7 @@ Use the **original compute shell created by your allocation**, especially for a 
 Inside that configured EL9 shell, install the standalone CLI in your writable work directory. The download below is for **x86-64** nodes:
 
 ```bash
-cd /work/pi_YOUR_PI/YOUR_USERNAME/atlas
+cd "/work/${USER_PI}/${USER}/atlas"
 VSCODE_ROOT="$PWD/.vscode-atlas"
 install -d -m 700 "$VSCODE_ROOT" "$VSCODE_ROOT/cli-bin"
 curl --fail --location \
@@ -248,7 +237,7 @@ Use the **explicit standalone CLI path**. A `code` command supplied by an existi
 1. Follow the CLI's device-login instructions and review the VS Code Server license prompt. Sign in with the GitHub or Microsoft identity you will use in your editor.
 2. In local VS Code, install Microsoft's **Remote – Tunnels** extension.
 3. Run **Remote-Tunnels: Connect to Tunnel…**, sign in with the same identity, and select `unity-atlas-123456`.
-4. Open `/work/pi_YOUR_PI/YOUR_USERNAME/atlas` and continue below. Alternatively, open the `vscode.dev` URL printed by the CLI to use the browser editor.
+4. Open the expanded project-folder path printed in the allocation step and continue below. Alternatively, open the `vscode.dev` URL printed by the CLI to use the browser editor.
 
 The compute node needs outbound access to Microsoft's tunnel service; if that service is unavailable from Unity, use the SSH method. Keep the allocation and foreground tunnel running. Stop the tunnel with **Ctrl+C** when finished. Do not install a persistent tunnel service on a compute node.
 

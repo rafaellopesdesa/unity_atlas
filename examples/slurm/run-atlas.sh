@@ -3,6 +3,9 @@
 unity_atlas_release=${1:?Missing ATLAS project and version}
 unity_atlas_run_dir=${2:?Missing output directory}
 unity_atlas_cpus=${3:-1}
+# These were passed explicitly, not inherited from an interactive .bashrc.
+export USER_PI=${4:?Missing Unity PI directory}
+export USER=${5:?Missing Unity username}
 cd "$unity_atlas_run_dir" || exit 1
 # Do not let a sourced setup script interpret the payload's arguments.
 set --

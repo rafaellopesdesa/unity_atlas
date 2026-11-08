@@ -10,7 +10,8 @@ set --
 source "$unity_vscode_config" </dev/null >&2 || exit "$?"
 unset BASH_ENV
 for unity_vscode_key in ATLAS_VSCODE_JOB_ID ATLAS_VSCODE_NODE \
-    ATLAS_VSCODE_IMAGE ATLAS_VSCODE_RELEASE ATLAS_VSCODE_WORKDIR; do
+    ATLAS_VSCODE_IMAGE ATLAS_VSCODE_RELEASE ATLAS_VSCODE_WORKDIR \
+    ATLAS_VSCODE_USER_PI ATLAS_VSCODE_USER; do
     if [[ -z ${!unity_vscode_key} ]]; then
         echo "Missing setting: $unity_vscode_key" >&2
         exit 2
@@ -45,6 +46,12 @@ module load apptainer/latest </dev/null >&2 || exit "$?"
 cd "$ATLAS_VSCODE_WORKDIR" || exit 1
 # A module may have introduced another noninteractive startup hook.
 unset BASH_ENV
+
+# These values were expanded in the original Unity allocation shell and
+# saved with the job settings. Do not rely on SSH startup reading .bashrc.
+export APPTAINERENV_USER_PI="$ATLAS_VSCODE_USER_PI"
+export APPTAINERENV_USER="$ATLAS_VSCODE_USER"
+export APPTAINERENV_ATLAS_WORKDIR="$ATLAS_VSCODE_WORKDIR"
 
 # Direct exec keeps VS Code's input stream intact. Unlike the interactive
 # ALRB launcher, this helper states its essential mounts explicitly.

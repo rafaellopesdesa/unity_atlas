@@ -7,7 +7,7 @@ This guide documents how to use Unity as an analysis facility for ATLAS, from an
 
 **[Setting up the environment →](setting-up-environment/)**
 
-Request CPU or GPU resources, enter an EL9 container, and load the software needed for your analysis. Includes optional shell shortcuts and checks for common setup problems.
+Create your work/project directories once, save `USER_PI` and the shell shortcuts, request CPU or GPU resources, enter an EL9 container, and load the software needed for your analysis.
 
 **[Submitting jobs with Slurm →](submitting-jobs/)**
 
