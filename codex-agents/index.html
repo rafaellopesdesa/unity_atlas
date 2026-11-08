@@ -20,8 +20,8 @@
   <aside class="sidebar" id="sidebar">
     <div class="search" hidden><label for="search-input">Search this guide</label><input id="search-input" type="search" placeholder="Search topics or commands…" autocomplete="off"><p id="search-status" aria-live="polite"></p><ul id="search-results" hidden></ul></div>
     <p class="nav-label">Documentation</p>
-    <nav class="chapters" aria-label="Chapters"><a href="../index.html">Overview</a><a href="../setting-up-environment/index.html">Setting up the environment</a><a href="../submitting-jobs/index.html">Submitting jobs with Slurm</a><a href="../using-vscode/index.html">Using VS Code</a><a aria-current="page" href="index.html">Codex Agents</a></nav>
-    <div class="sidebar-note"><span class="status-dot"></span> Growing guide<p>Environment setup, batch jobs, VS Code, and Codex Agents. More analysis workflows will follow.</p></div>
+    <nav class="chapters" aria-label="Chapters"><a href="../index.html">Overview</a><a href="../setting-up-environment/index.html">Setting up the environment</a><a href="../submitting-jobs/index.html">Submitting jobs with Slurm</a><a href="../using-pixi/index.html">Using Pixi</a><a href="../using-vscode/index.html">Using VS Code</a><a aria-current="page" href="index.html">Codex Agents</a></nav>
+    <div class="sidebar-note"><span class="status-dot"></span> Growing guide<p>Environment setup, batch jobs, Pixi, VS Code, and Codex Agents. More analysis workflows will follow.</p></div>
     <a class="sidebar-source" href="https://github.com/rafaellopesdesa/unity_atlas/issues">Suggest an improvement ↗</a>
   </aside>
   <main id="main" tabindex="-1">
@@ -106,10 +106,9 @@ codex login status</code></pre>
 <p>Codex normally retains the login in its configured credential store, so a new allocation does not imply a new login. Keep its configuration and credentials private; do not put them in your analysis repository. This authentication is only for Codex—ATLAS authentication comes below.</p>
 <h2 id="mcp-install">4. Install isolated MCP tools</h2>
 <p>Use a dedicated Pixi environment for the MCP servers. In particular, <strong>do not <code>pip install</code> them into the Python selected by <code>asetup</code></strong>, and do not activate their environment in your analysis shell. Their dependency versions serve the catalog clients, while analysis code must keep the release's Python and ROOT libraries.</p>
-<p>Install Pixi once, using its official installer:</p>
-<pre class="bash"><code>curl -fsSL https://pixi.sh/install.sh | bash
-&quot;$HOME/.pixi/bin/pixi&quot; --version</code></pre>
-<p>Download the <a href="../examples/codex/pixi.toml">manifest</a> and <a href="../examples/codex/atlas-mcp-env.sh">environment launcher</a> to the same private directory:</p>
+<p>This section assumes Pixi is installed as described in <a href="../using-pixi/#installation">Using Pixi</a>. Check that the installation is visible inside EL9:</p>
+<pre class="bash"><code>&quot;$HOME/.pixi/bin/pixi&quot; --version</code></pre>
+<p>The workflow uses a supplied manifest, following the earlier chapter's <a href="../using-pixi/#projects">existing-project instructions</a>. Download the <a href="../examples/codex/pixi.toml">manifest</a> and <a href="../examples/codex/atlas-mcp-env.sh">environment launcher</a> to the same private directory:</p>
 <pre class="bash"><code>MCP_DIR=&quot;$HOME/.local/share/unity-atlas-mcp&quot;
 install -d -m 700 &quot;$MCP_DIR&quot;
 curl --fail --location \

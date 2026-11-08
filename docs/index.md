@@ -13,6 +13,10 @@ Create your work/project directories once, save `USER_PI` and the shell shortcut
 
 Turn the tested interactive environment into a batch job. Includes downloadable scripts, a PyROOT smoke test, resource requests, logs, and troubleshooting.
 
+**[Using Pixi →](using-pixi/)**
+
+Install Pixi in your user area, manage personal command-line tools with `pixi global`, and use `pixi install` and `pixi run` with an existing project's environment.
+
 **[Using VS Code →](using-vscode/)**
 
 Connect to an allocated node, start a VS Code backend inside EL9, and configure integrated ATLAS Python execution, debugging, and notebook kernels. Includes SSH and tunnel methods.
@@ -36,12 +40,12 @@ Start the container **after** the allocation has started. The container runs wit
 
 ## About this guide
 
-The first four chapters cover interactive environment setup, Slurm batch jobs, VS Code, and Codex with authenticated catalog access. Further chapters will cover data movement, analysis workflows, and machine learning as those procedures are established.
+The first five chapters cover interactive environment setup, Slurm batch jobs, Pixi, VS Code, and Codex with authenticated catalog access. Further chapters will cover data movement, analysis workflows, and machine learning as those procedures are established.
 
 The [Unity documentation](https://docs.unity.rc.umass.edu/documentation/) is the reference for cluster access, storage, and scheduling. The [ATLAS Software Documentation](https://atlas-software.docs.cern.ch/) is the reference for ATLAS software and analysis procedures.
 
 ::: {.callout}
-**Validation status.** Rafael has tested the interactive environment recipe successfully on Unity, including access to `/work` without an explicit mount and `nvidia-smi` inside EL9 when launching with explicit `--nv`. The batch, VS Code, and Codex recipes have passed local checks and await end-to-end Unity tests; the Codex chapter lists the required authenticated checks.
+**Validation status.** Rafael has tested the interactive environment recipe successfully on Unity, including access to `/work` without an explicit mount and `nvidia-smi` inside EL9 when launching with explicit `--nv`. The batch, Pixi, VS Code, and Codex recipes have passed local checks and await end-to-end Unity tests; the Codex chapter lists the required authenticated checks.
 :::
 
 Found a problem or tested a setup? [Open an issue](https://github.com/rafaellopesdesa/unity_atlas/issues) with the relevant command, error, and compute-node hostname. Omit credentials and tokens.

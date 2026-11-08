@@ -21,6 +21,13 @@
     "description": "Run ATLAS analysis in EL9 containers on Unity batch workers, with downloadable Slurm scripts."
   },
   {
+    "source": "using-pixi.md",
+    "output": "using-pixi/index.html",
+    "title": "Using Pixi",
+    "label": "Using Pixi",
+    "description": "Install Pixi in your user area, manage global tools, and run projects with supplied environments."
+  },
+  {
     "source": "using-vscode.md",
     "output": "using-vscode/index.html",
     "title": "Using VS Code",

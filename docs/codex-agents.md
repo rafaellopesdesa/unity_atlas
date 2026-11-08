@@ -97,14 +97,13 @@ Codex normally retains the login in its configured credential store, so a new al
 
 Use a dedicated Pixi environment for the MCP servers. In particular, **do not `pip install` them into the Python selected by `asetup`**, and do not activate their environment in your analysis shell. Their dependency versions serve the catalog clients, while analysis code must keep the release's Python and ROOT libraries.
 
-Install Pixi once, using its official installer:
+This section assumes Pixi is installed as described in [Using Pixi](../using-pixi/#installation). Check that the installation is visible inside EL9:
 
 ```bash
-curl -fsSL https://pixi.sh/install.sh | bash
 "$HOME/.pixi/bin/pixi" --version
 ```
 
-Download the [manifest](../examples/codex/pixi.toml) and [environment launcher](../examples/codex/atlas-mcp-env.sh) to the same private directory:
+The workflow uses a supplied manifest, following the earlier chapter's [existing-project instructions](../using-pixi/#projects). Download the [manifest](../examples/codex/pixi.toml) and [environment launcher](../examples/codex/atlas-mcp-env.sh) to the same private directory:
 
 ```bash
 MCP_DIR="$HOME/.local/share/unity-atlas-mcp"

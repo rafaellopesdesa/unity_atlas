@@ -5,6 +5,9 @@ export USER_PI=YOUR_PI
 export ATLAS_WORKDIR="/work/${USER_PI}/${USER}/atlas"
 export ATLAS_LOCAL_ROOT_BASE=/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase
 
+# Pixi and personal tools installed with pixi global (see the Using Pixi chapter).
+export PATH="$HOME/.pixi/bin:$PATH"
+
 # Keep these path variables available even when Apptainer cleans the environment.
 export APPTAINERENV_USER_PI="$USER_PI"
 export APPTAINERENV_USER="$USER"
