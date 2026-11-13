@@ -334,5 +334,5 @@ For a session that survives an SSH disconnect, start `tmux new -s atlas` **on th
 - [US ATLAS Analysis Facilities: Apptainer usage](https://usatlas.github.io/af-docs/containers/apptainer/usage/) and [benchmarking examples](https://github.com/usatlas/af-benchmarking/blob/main/README.md) using `ALRB_CONT_CMDOPTS`.
 - [Apptainer GPU support](https://apptainer.org/docs/user/latest/gpu.html) and [environment-variable reference](https://apptainer.org/docs/user/latest/appendix.html).
 
-**Next:** [Submitting jobs with Slurm](../submitting-jobs/) recreates this environment automatically on a batch worker.
+**Next:** [Grid certificates and authentication](../grid-certificates/) prepares your identity for ATLAS grid services. Then [Submitting jobs with Slurm](../submitting-jobs/) recreates this environment automatically on a batch worker.
 

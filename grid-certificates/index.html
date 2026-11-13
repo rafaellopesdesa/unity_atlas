@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Grid certificates and authentication | ATLAS on Unity</title>
+  <meta name="description" content="Obtain and register a personal grid certificate, install it on Unity, and create, use, and renew an ATLAS VOMS proxy.">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script defer src="../assets/search-index.js"></script>
+  <script defer src="../assets/site.js"></script>
+</head>
+<body data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <a class="brand" href="../index.html"><span class="brand-mark" aria-hidden="true">A / U</span><span>ATLAS Analysis on Unity<small>UMass Amherst · Analysis facility guide</small></span></a>
+  <nav class="external" aria-label="External resources"><a href="https://docs.unity.rc.umass.edu/documentation/">Unity docs ↗</a><a href="https://atlas-software.docs.cern.ch/">ATLAS docs ↗</a><a href="https://github.com/rafaellopesdesa/unity_atlas">GitHub ↗</a></nav>
+  <button class="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>Menu</button>
+</header>
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="search" hidden><label for="search-input">Search this guide</label><input id="search-input" type="search" placeholder="Search topics or commands…" autocomplete="off"><p id="search-status" aria-live="polite"></p><ul id="search-results" hidden></ul></div>
+    <p class="nav-label">Documentation</p>
+    <nav class="chapters" aria-label="Chapters"><a href="../index.html">Overview</a><a href="../setting-up-environment/index.html">Setting up the environment</a><a aria-current="page" href="index.html">Grid certificates and authentication</a><a href="../submitting-jobs/index.html">Submitting jobs with Slurm</a><a href="../using-pixi/index.html">Using Pixi</a><a href="../using-vscode/index.html">Using VS Code</a><a href="../using-jupyterlab/index.html">Using JupyterLab</a><a href="../codex-agents/index.html">Codex Agents</a></nav>
+    <div class="sidebar-note"><span class="status-dot"></span> Growing guide<p>Environment setup, batch jobs, Pixi, VS Code, JupyterLab, and Codex Agents. More analysis workflows will follow.</p></div>
+    <a class="sidebar-source" href="https://github.com/rafaellopesdesa/unity_atlas/issues">Report a problem ↗</a>
+  </aside>
+  <main id="main" tabindex="-1">
+    <div class="breadcrumb">Documentation <span>/</span> Grid certificates and authentication</div>
+    <div class="eyebrow">ATLAS · UMASS UNITY</div>
+    <h1>Grid certificates and authentication</h1>
+    <article><p>Use a personal grid certificate to establish your identity, register that identity with ATLAS, and create a short-lived VOMS proxy for command-line access. The proxy can then be used by Rucio, compatible storage clients, and the Rucio/AMI MCP servers described later in this guide.</p>
+<p>Obtaining and installing the certificate is a one-time setup that you repeat when renewing or replacing it. Creating a proxy is a session task. Complete <a href="../setting-up-environment/">Setting up the environment</a> first; this chapter uses its <code>unity_cpu</code>, <code>setupATLAS</code>, and <code>ATLAS_WORKDIR</code> settings.</p>
+<h2 id="credentials">1. Understand the credentials</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Item</th>
+<th>Purpose and lifetime</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Personal grid certificate</td>
+<td>Identifies you to grid services; issued by a trusted certificate authority and renewed before its expiry.</td>
+</tr>
+<tr class="even">
+<td>Encrypted private key</td>
+<td>Proves that the certificate belongs to you. Its passphrase is needed when creating a proxy.</td>
+</tr>
+<tr class="odd">
+<td>ATLAS VO membership</td>
+<td>Associates your identity with the ATLAS virtual organization and its approved groups. Managed through ATLAS IAM.</td>
+</tr>
+<tr class="even">
+<td>VOMS proxy</td>
+<td>A short-lived credential containing your delegated identity and ATLAS attributes. Clients read it from the path in <code>X509_USER_PROXY</code>.</td>
+</tr>
+<tr class="odd">
+<td>Unity account</td>
+<td>Lets you log in and run jobs on Unity. It is separate from your ATLAS grid identity and Rucio account.</td>
+</tr>
+</tbody>
+</table>
+<p>A <code>.p12</code> or <code>.pfx</code> file is a PKCS#12 bundle containing the certificate and private key. This guide extracts that bundle into <code>usercert.pem</code> and an encrypted <code>userkey.pem</code>, then creates the session proxy in a private directory under <code>/tmp</code>.</p>
+<h2 id="obtain">2. Obtain a personal grid certificate</h2>
+<p>If you already have a valid personal grid certificate and its private key, reuse them and continue to <a href="#register">ATLAS registration</a>. You do not need a separate certificate for Unity.</p>
+<p>On <strong>your own computer</strong>, using your browser:</p>
+<ol type="1">
+<li>Open the <a href="https://ca.cern.ch/ca/">CERN Certification Authority</a> and sign in with your CERN account.</li>
+<li>Under <strong>Grid User certificates</strong>, choose <strong>New Grid User certificate</strong> and follow the request process. This must be a personal grid-user certificate.</li>
+<li>Save the certificate and private key as a password-protected PKCS#12 bundle (<code>.p12</code> or <code>.pfx</code>). Keep the original downloaded bundle if the issuance workflow supplies one.</li>
+<li>Keep a protected backup and retain its password. You will need both to install the credential on Unity.</li>
+</ol>
+<p>CERN checks account and registration eligibility. Its <a href="https://ca.cern.ch/ca/Help/Default.aspx?kbid=021001">eligibility guidance</a> explains the requirements and alternatives if you cannot obtain a CERN certificate. A Unity account alone does not make you eligible.</p>
+<p>If your certificate is already installed in a browser, export or back up <strong>the certificate together with its private key</strong> as a password-protected PKCS#12 bundle. Exporting only a public <code>.cer</code> file is insufficient. CERN provides <a href="https://ca.cern.ch/ca/Help/?fdid=6">browser import/export help</a> and <a href="https://ca.cern.ch/ca/Help/?kbid=060111">macOS instructions</a>.</p>
+<h2 id="register">3. Register with ATLAS and link the certificate</h2>
+<p>Certificate issuance and ATLAS membership are separate steps. Use the browser on your own computer for registration:</p>
+<ol type="1">
+<li>Import the PKCS#12 bundle into your browser's personal-certificate store. In Firefox, open the certificate manager, choose <strong>Your Certificates</strong>, and select <strong>Import</strong>. Enter the bundle password when prompted.</li>
+<li>Open <a href="https://atlas-auth.cern.ch/">ATLAS IAM</a> with that browser. Select your grid certificate if the browser asks.</li>
+<li>If you already have an ATLAS IAM account, sign in with <strong>CERN SSO</strong>. Otherwise choose <strong>Apply for an account</strong>, complete the registration and usage-policy steps, confirm the email request, and wait for approval.</li>
+<li>Check that your grid certificate is linked to your account. If <strong>Link Certificate</strong> is offered, select it and confirm the certificate identity. The link option requires the browser to have presented a valid, trusted certificate.</li>
+</ol>
+<p>Use your existing IAM account when adding a replacement certificate. Request additional groups only when needed for your work. The <a href="https://atlas-software.docs.cern.ch/analysis/analysis_tutorial/basicSetup/grid_vo/">ATLAS VO guide</a> and <a href="https://docs.sdcc.bnl.gov/experiments/usatlas/Joining_the_ATLAS_VO/">US ATLAS registration instructions</a> provide further details.</p>
+<h2 id="install">4. Install the credentials on Unity</h2>
+<p>Keep credentials in your private home directory. Do not put the bundle, private key, or proxy in your analysis repository or a shared project directory.</p>
+<p>For a <strong>first installation</strong>, create the destination from your own computer. Replace <code>YOUR_USERNAME</code> with your Unity username, and adjust the local bundle filename:</p>
+<pre class="bash"><code># Your computer
+ssh YOUR_USERNAME@login.unityhpc.org \
+  &#39;umask 077; mkdir -p &quot;$HOME/.globus&quot;; chmod 700 &quot;$HOME/.globus&quot;&#39;
+scp &quot;$HOME/Downloads/grid-certificate.p12&quot; \
+  YOUR_USERNAME@login.unityhpc.org:.globus/usercred.p12</code></pre>
+<p>If you already have the working <code>usercert.pem</code> and <code>userkey.pem</code> pair on Unity, skip the bundle transfer and conversion. For a certificate replacement, preserve the existing pair until you have checked the replacement; the conversion commands below write those filenames.</p>
+<h3 id="container">Enter the container</h3>
+<p>Connect to Unity and use the environment chapter's allocation and container commands:</p>
+<pre class="bash"><code># Your computer
+ssh YOUR_USERNAME@login.unityhpc.org</code></pre>
+<pre class="bash"><code># Unity login node
+unity_cpu
+
+# After allocation, on the Ubuntu compute node
+module load apptainer/latest
+cd &quot;$ATLAS_WORKDIR&quot;
+setupATLAS -c el9</code></pre>
+<p>Check the credential directory <strong>inside EL9</strong>:</p>
+<pre class="bash"><code>printf &#39;Container home: %s\n&#39; &quot;$HOME&quot;
+ls -ld &quot;$HOME/.globus&quot;</code></pre>
+<p>The container may expose your home at a different path than the Ubuntu host. Use the paths visible inside the container throughout this chapter. If the files are missing, check the host path and the environment chapter's <a href="../setting-up-environment/#container">mount guidance</a> before continuing. A <code>.globus</code> directory under the current working directory is not necessarily <code>$HOME/.globus</code>.</p>
+<h3 id="convert-a-pkcs12-bundle-to-pem">Convert a PKCS#12 bundle to PEM</h3>
+<p>For the first installation, run these commands <strong>inside EL9</strong>. The private key remains encrypted:</p>
+<pre class="bash"><code>umask 077
+chmod 700 &quot;$HOME/.globus&quot;
+chmod 600 &quot;$HOME/.globus/usercred.p12&quot;
+
+openssl pkcs12 -in &quot;$HOME/.globus/usercred.p12&quot; \
+  -clcerts -nokeys -out &quot;$HOME/.globus/usercert.pem&quot;
+
+openssl pkcs12 -in &quot;$HOME/.globus/usercred.p12&quot; \
+  -nocerts -aes256 -out &quot;$HOME/.globus/userkey.pem&quot;
+
+chmod 600 &quot;$HOME/.globus/usercert.pem&quot; &quot;$HOME/.globus/userkey.pem&quot;</code></pre>
+<p>OpenSSL asks for the bundle's import password. When extracting the key, it also asks you to choose and confirm a PEM passphrase. That PEM passphrase is what <code>voms-proxy-init</code> will request. Do not add <code>-nodes</code> or <code>-noenc</code>, which would remove key encryption.</p>
+<p>Check that the files are readable and that the certificate has not expired:</p>
+<pre class="bash"><code>ls -l &quot;$HOME/.globus/usercert.pem&quot; &quot;$HOME/.globus/userkey.pem&quot;
+openssl x509 -in &quot;$HOME/.globus/usercert.pem&quot; \
+  -noout -subject -issuer -dates
+openssl pkey -in &quot;$HOME/.globus/userkey.pem&quot; -check -noout</code></pre>
+<p>The last command prompts for the PEM passphrase and checks the private key without printing it. These commands check the local files; the following VOMS request checks your grid credential and ATLAS membership.</p>
+<h2 id="create-proxy">5. Create a proxy for this session</h2>
+<p>Inside a fresh EL9 session, initialize the ATLAS grid client environment:</p>
+<pre class="bash"><code>lsetup rucio
+command -v voms-proxy-init</code></pre>
+<p>No analysis release or Pixi environment is needed for this step. The <a href="../codex-agents/#grid-auth">Codex chapter</a> runs the same proxy commands through its isolated MCP launcher instead.</p>
+<p>Choose the proxy output path <strong>before creating it</strong>. Use explicit paths for all three files: the certificate, private key, and output proxy. Run this once for a new session; <a href="#renew">renew an existing proxy</a> at its current path when needed.</p>
+<pre class="bash"><code>umask 077
+if ATLAS_PROXY_DIR=&quot;$(mktemp -d /tmp/atlas-proxy.XXXXXXXX)&quot;; then
+    export ATLAS_PROXY_DIR
+    export X509_USER_PROXY=&quot;$ATLAS_PROXY_DIR/x509up&quot;
+
+    voms-proxy-init \
+        -voms atlas -valid 12:00 \
+        -cert &quot;$HOME/.globus/usercert.pem&quot; \
+        -key &quot;$HOME/.globus/userkey.pem&quot; \
+        -out &quot;$X509_USER_PROXY&quot; \
+    &amp;&amp; voms-proxy-info -file &quot;$X509_USER_PROXY&quot; -timeleft
+else
+    echo &#39;Could not create a private proxy directory; stop here.&#39; &gt;&amp;2
+fi</code></pre>
+<p>Substitute your actual certificate/key filenames if needed. Enter the <strong>PEM private-key passphrase</strong> when prompted. Continue only after proxy creation succeeds and the remaining lifetime is positive. Inspect the identity, ATLAS attributes, and their expiry with:</p>
+<pre class="bash"><code>voms-proxy-info -file &quot;$X509_USER_PROXY&quot; -all</code></pre>
+<p>The requested 12 hours can be shortened by certificate expiry or server policy. Inspect both the proxy and VOMS-attribute lifetimes. The exported path remains available to commands started in this terminal.</p>
+<p><strong>Do not set <code>X509_USER_PROXY</code> by running <code>voms-proxy-info -path</code> before a proxy exists.</strong> If that lookup fails, assigning its output can export an empty string. The explicit <code>-out</code> recipe above avoids that failure.</p>
+<h2 id="use-proxy">6. Use the proxy with your tools</h2>
+<p>For Rucio, set the account associated with your ATLAS identity and select proxy authentication:</p>
+<pre class="bash"><code>export RUCIO_ACCOUNT=YOUR_RUCIO_ACCOUNT
+export RUCIO_AUTH_TYPE=x509_proxy</code></pre>
+<p>Your Rucio account may differ from Unity's <code>$USER</code>. These exports select an existing account; they do not create or register it. Compatible XRootD clients use the same <code>X509_USER_PROXY</code> path. The Codex MCP launcher forwards that path to its clients, which have their own authentication configuration.</p>
+<p>Keep the proxy readable by the process that needs it. A new node or container may have a different <code>/tmp</code>, and a new terminal does not automatically inherit your exports. Recreate the proxy in the session where you will use it if the existing file is unavailable. In a Slurm job, a proxy made on another node is not automatically accessible merely because its filename is exported.</p>
+<p>Do not put a temporary proxy path or automatic proxy creation into <code>.bashrc</code>. Keep session credentials separate from the persistent directory and software shortcuts. Proxy creation establishes your identity and ATLAS attributes; an individual service still applies its account and resource permissions.</p>
+<h2 id="renew">7. Renew and finish</h2>
+<h3 id="renew-a-session-proxy">Renew a session proxy</h3>
+<p>Renew at the same filename so tools already configured with that path can use it. In the same container and terminal:</p>
+<pre class="bash"><code>if [[ -n ${X509_USER_PROXY:-} &amp;&amp; -d ${ATLAS_PROXY_DIR:-} ]]; then
+    voms-proxy-init \
+        -voms atlas -valid 12:00 \
+        -cert &quot;$HOME/.globus/usercert.pem&quot; \
+        -key &quot;$HOME/.globus/userkey.pem&quot; \
+        -out &quot;$X509_USER_PROXY&quot; \
+    &amp;&amp; voms-proxy-info -file &quot;$X509_USER_PROXY&quot; -timeleft
+else
+    echo &#39;Create a new session proxy using the earlier recipe.&#39; &gt;&amp;2
+fi</code></pre>
+<p>Restart clients that retain an expired credential in memory. For Codex, follow its <a href="../codex-agents/#sessions">renew/resume instructions</a>.</p>
+<h3 id="renew-the-personal-certificate">Renew the personal certificate</h3>
+<p>Renew through your certificate authority before the personal certificate expires. Install the new certificate <strong>and its matching private key</strong>, check their validity, and confirm the certificate identity is still linked to your existing ATLAS IAM account. A changed subject or issuer may need a new link. Then create a fresh proxy. Certificate renewal, VO membership renewal, and proxy renewal are separate operations.</p>
+<h3 id="finish-the-session">Finish the session</h3>
+<p>After all clients using this proxy have finished:</p>
+<pre class="bash"><code>voms-proxy-destroy -file &quot;$X509_USER_PROXY&quot; \
+    &amp;&amp; rmdir &quot;$ATLAS_PROXY_DIR&quot; \
+    &amp;&amp; unset X509_USER_PROXY ATLAS_PROXY_DIR</code></pre>
+<p>Keep the personal certificate and encrypted key for future sessions. Destroying this proxy removes the local copy; it does not revoke other credentials or tokens already issued.</p>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="no-credentials-found"><code>No credentials found!</code></h3>
+<p>Check <code>HOME</code>, filenames, and readability <strong>inside the container</strong>:</p>
+<pre class="bash"><code>printf &#39;HOME=%s\n&#39; &quot;$HOME&quot;
+ls -l &quot;$HOME/.globus/usercert.pem&quot; &quot;$HOME/.globus/userkey.pem&quot;</code></pre>
+<p>Pass the paths explicitly with <code>-cert</code> and <code>-key</code>, as in the <a href="#create-proxy">creation recipe</a>. If the files are visible and the error remains, inspect preceding messages about loading or decrypting the key.</p>
+<h3 id="error-creating-proxy-certificate-invalid-argument"><code>Error creating proxy certificate: : Invalid argument</code></h3>
+<p>If VOMS reports a successful server contact followed by this error, check the output variable:</p>
+<pre class="bash"><code>printf &#39;X509_USER_PROXY=&lt;%s&gt;\n&#39; &quot;${X509_USER_PROXY-UNSET}&quot;</code></pre>
+<p><code>&lt;&gt;</code> means the variable is set but empty; <code>&lt;UNSET&gt;</code> means it is absent. An empty exported value can make VOMS try to save to an invalid filename. Follow the <a href="#create-proxy">creation recipe</a> to choose a private directory and pass a nonempty <code>-out</code> path. Do not derive the path from a failed <code>voms-proxy-info</code> invocation.</p>
+<p>If it still fails with a valid, writable output path, add <code>-debug</code> to the <code>voms-proxy-init</code> command and inspect the final exception. The brief error alone is not enough to diagnose every possible failure.</p>
+<h3 id="other-common-problems">Other common problems</h3>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Symptom</th>
+<th>What to check</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>OpenSSL cannot read an older PKCS#12 bundle and reports an unsupported algorithm</td>
+<td>Add <code>-legacy</code> to the affected <code>openssl pkcs12</code> extraction command. Keep encryption on the resulting PEM key.</td>
+</tr>
+<tr class="even">
+<td>Cannot decrypt the private key</td>
+<td>Use the PEM passphrase chosen during conversion, which may differ from the bundle password. Check the file with <code>openssl pkey -check -noout</code>.</td>
+</tr>
+<tr class="odd">
+<td>Browser does not offer the certificate or IAM does not show a link option</td>
+<td>Import the personal certificate and its key, check expiry, and ensure the browser presents the intended certificate. Consult CERN's browser help if CA trust needs configuring.</td>
+</tr>
+<tr class="even">
+<td>VOMS rejects the identity or ATLAS attributes</td>
+<td>Check certificate validity, approved VO membership, and the certificate link in ATLAS IAM. Newly approved changes can take time to propagate.</td>
+</tr>
+<tr class="odd">
+<td>Proxy has disappeared or expired</td>
+<td>Check its explicit filename and lifetime in the current container; recreate it on a new node or renew it at the existing path.</td>
+</tr>
+<tr class="even">
+<td>Rucio authenticates to an unexpected account</td>
+<td>Check <code>RUCIO_ACCOUNT</code>; it is the ATLAS Rucio account, not automatically Unity <code>$USER</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>If an instruction does not work, <a href="https://github.com/rafaellopesdesa/unity_atlas/issues">open an issue</a> with the command, error, software version, and compute-node hostname. Omit private keys, proxy contents, passwords, and tokens.</p>
+<h2 id="references">References</h2>
+<ul>
+<li>CERN: <a href="https://ca.cern.ch/ca/">certificate authority</a>, <a href="https://ca.cern.ch/ca/Help/Default.aspx?kbid=021001">grid-user eligibility</a>, and <a href="https://ca.cern.ch/ca/Help/?fdid=6">browser help</a>.</li>
+<li>ATLAS: <a href="https://atlas-software.docs.cern.ch/analysis/analysis_tutorial/basicSetup/grid_cert/">obtaining a certificate</a>, <a href="https://atlas-software.docs.cern.ch/analysis/analysis_tutorial/basicSetup/grid_vo/">VO membership</a>, and <a href="https://atlas-auth.cern.ch/">ATLAS IAM</a>.</li>
+<li>US ATLAS: <a href="https://docs.sdcc.bnl.gov/experiments/usatlas/Joining_the_ATLAS_VO/">joining the ATLAS VO</a>.</li>
+<li>INDIGO IAM: <a href="https://indigo-iam.github.io/v/v1.15.0/docs/tasks/user/x509-linking/">linking an X.509 certificate</a>.</li>
+<li>OpenSSL: <a href="https://docs.openssl.org/3.0/man1/openssl-pkcs12/">PKCS#12 conversion</a>.</li>
+<li>VOMS: <a href="https://italiangrid.github.io/voms/documentation/voms-clients-guide/3.0.2/">client guide</a> and <a href="https://github.com/italiangrid/voms-clients/blob/main/man/voms-proxy-init.1.adoc">proxy-init manual</a>.</li>
+<li>Rucio: <a href="https://rucio.github.io/documentation/user/configuring_the_client/">client authentication configuration</a>.</li>
+</ul>
+<p><strong>Next:</strong> <a href="../submitting-jobs/">Submitting jobs with Slurm</a> runs ATLAS software on batch workers. <a href="../codex-agents/">Codex Agents</a> uses your personal grid proxy for Rucio and AMI access.</p>
+</article>
+    <footer><span>ATLAS Analysis on Unity</span><a href="https://github.com/rafaellopesdesa/unity_atlas/blob/main/docs/grid-certificates.md">View page source ↗</a></footer>
+  </main>
+  <aside class="toc" aria-label="On this page"><p class="nav-label">On this page</p><nav><a href="#credentials">1. Understand the credentials</a><a href="#obtain">2. Obtain a personal grid certificate</a><a href="#register">3. Register with ATLAS and link the certificate</a><a href="#install">4. Install the credentials on Unity</a><a href="#create-proxy">5. Create a proxy for this session</a><a href="#use-proxy">6. Use the proxy with your tools</a><a href="#renew">7. Renew and finish</a><a href="#troubleshooting">Troubleshooting</a><a href="#references">References</a></nav><a class="back-top" href="#main">Back to top ↑</a></aside>
+</div>
+</body>
+</html>

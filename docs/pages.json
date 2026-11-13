@@ -14,6 +14,13 @@
     "description": "Allocate Unity resources, start an EL9 container, and set up ATLAS software."
   },
   {
+    "source": "grid-certificates.md",
+    "output": "grid-certificates/index.html",
+    "title": "Grid certificates and authentication",
+    "label": "Grid certificates and authentication",
+    "description": "Obtain and register a personal grid certificate, install it on Unity, and create, use, and renew an ATLAS VOMS proxy."
+  },
+  {
     "source": "submitting-jobs.md",
     "output": "submitting-jobs/index.html",
     "title": "Submitting jobs with Slurm",
