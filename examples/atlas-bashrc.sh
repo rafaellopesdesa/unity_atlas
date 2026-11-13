@@ -13,6 +13,12 @@ export APPTAINERENV_USER_PI="$USER_PI"
 export APPTAINERENV_USER="$USER"
 export APPTAINERENV_ATLAS_WORKDIR="$ATLAS_WORKDIR"
 
+# Install this optional function as described in Grid certificates and authentication.
+# Loading its definition does not create a proxy or prompt for a passphrase.
+if [[ -r "$HOME/.config/unity-atlas/atlas-proxy.sh" ]]; then
+    source "$HOME/.config/unity-atlas/atlas-proxy.sh"
+fi
+
 if [[ $- == *i* ]]; then
     alias setupATLAS='source ${ATLAS_LOCAL_ROOT_BASE}/user/atlasLocalSetup.sh'
     alias unity_cpu='salloc --partition=cpu --nodes=1 --ntasks=1 --cpus-per-task=4 --mem=16G --time=02:00:00'

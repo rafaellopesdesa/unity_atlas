@@ -91,6 +91,8 @@ for example, page_path in examples:
     page = pages[(ROOT / page_path).resolve()]
     assert example.read_text().strip() in [block.strip() for block in page.blocks], \
         f"Displayed script differs from download: {example.name}"
+# The grid-proxy function is a linked, sourced download.
+subprocess.run(["bash", "-n", str(ROOT / "examples/atlas-proxy.sh")], check=True)
 # The VS Code launchers are linked downloads; the Python/JSON examples are
 # also displayed in full and must stay synchronized with their downloads.
 for example in (ROOT / "examples/vscode").glob("*.sh"):

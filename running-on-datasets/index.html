@@ -136,18 +136,23 @@ unity_cpu
 module load apptainer/latest
 cd &quot;$ATLAS_WORKDIR/jobs/net2-susy15-v1&quot;
 setupATLAS -c el9</code></pre>
-<p>Inside EL9, follow the grid chapter's <a href="../grid-certificates/#create-proxy">proxy creation recipe</a>, including <code>lsetup rucio</code>, explicit certificate/key paths, and an explicit proxy output filename. Set your ATLAS Rucio account; it may differ from Unity's <code>$USER</code>:</p>
+<p>Inside EL9, use the grid chapter's recommended <a href="../grid-certificates/#proxy-helper"><code>atlas_proxy</code> shortcut</a>. It supplies the explicit certificate/key and proxy output paths. Install the helper once as described there; sourcing its file below also works when the container has not loaded your <code>.bashrc</code>.</p>
+<p>Set your ATLAS Rucio account; it may differ from Unity's <code>$USER</code>. The example DID below is a concrete SUSY15 dataset; replace it when processing another dataset:</p>
 <pre class="bash"><code>cd &quot;$ATLAS_WORKDIR/jobs/net2-susy15-v1&quot;
-export RUCIO_ACCOUNT=YOUR_RUCIO_ACCOUNT
+lsetup rucio
+source &quot;$HOME/.config/unity-atlas/atlas-proxy.sh&quot;
+atlas_proxy</code></pre>
+<p>Continue only if <code>atlas_proxy</code> succeeds. The explicit <a href="../grid-certificates/#create-proxy">manual proxy recipe</a> remains available if you have not installed the shortcut. Then configure Rucio and the dataset:</p>
+<pre class="bash"><code>export RUCIO_ACCOUNT=YOUR_RUCIO_ACCOUNT
 export RUCIO_AUTH_TYPE=x509_proxy
 export RSE=NET2_LOCALGROUPDISK
-read -r -p &#39;Closed dataset DID (scope:name): &#39; DID
+DID=&#39;mc16_13TeV:mc16_13TeV.501261.MGPy8EG_s0zpzp2mu2e_500_100_10.deriv.DAOD_SUSY15.e8092_e7400_s3126_r11891_r11748_p4800_tid27118280_00&#39;
 
 rucio --version
 rucio rse list --rses &quot;$RSE&quot;
 rucio did show &quot;$DID&quot;
 rucio rule list --did &quot;$DID&quot;</code></pre>
-<p>Use the <strong>full dataset DID</strong>, including scope, not a filename or an XRootD URL. A dataset is a set of files; a container is a set of datasets. For a container, inspect its contents with <code>rucio did content list "$CONTAINER_DID"</code>, choose its closed child datasets, and use a separate campaign for each. Do not close an official production dataset yourself; wait for completion or select a closed dataset.</p>
+<p>Use the <strong>full dataset DID</strong>, including scope, not a filename or an XRootD URL. This is the dataset containing the example file <code>DAOD_SUSY15.27118280._000001.pool.root.1</code>; the manifest will include all of its files. Still check its current replica and rule state before requesting another transfer. A dataset is a set of files; a container is a set of datasets. For a container, inspect its contents with <code>rucio did content list "$CONTAINER_DID"</code>, choose its closed child datasets, and use a separate campaign for each. Do not close an official production dataset yourself; wait for completion or select a closed dataset.</p>
 <p>Check existing rules before creating another one. An existing rule that retains this dataset at NET2 for your whole campaign may be sufficient. Otherwise request <strong>one copy</strong> at this exact RSE, for example for 14 days:</p>
 <pre class="bash"><code>rucio rule add --copies 1 --rses &quot;$RSE&quot; --lifetime 1209600 &quot;$DID&quot;</code></pre>
 <p>Record the returned rule ID. This schedules a site-to-site transfer; it does not download the dataset to Unity. The example lifetime is in seconds and must cover the transfer, queueing, processing, and retries. It is not a statement of NET2 quota or retention policy.</p>
@@ -249,7 +254,7 @@ if PROXY_NEW=$(mktemp &quot;$PROXY_DIR/.x509up.XXXXXXXX&quot;); then
 fi</code></pre>
 <p>Inspect <strong>both</strong> the proxy and VOMS-attribute lifetimes. Each worker requires enough remaining validity for its requested wall time plus 15 minutes. The default two-hour job therefore needs more than 2 hours 15 minutes remaining <strong>when it starts</strong>, after queueing.</p>
 <p>The batch wrapper passes the relative proxy path explicitly because it uses <code>--export=NONE</code>. Inside EL9, the payload resolves it against that container's <code>$HOME</code>, copies it into a private worker <code>/tmp</code> directory, and validates the copy. It needs no private key, password prompt, or Rucio dataset query. It preserves the grid CA certificate-directory setting while keeping grid-tool Python and library setup separate from the analysis release.</p>
-<p>For renewal, create or renew a proxy interactively using the <a href="../grid-certificates/#renew">grid chapter</a>, then repeat the copy block above from the same campaign directory. The temporary-file rename updates the shared source atomically. <strong>Queued tasks can use the replacement; already-running tasks keep their original copy.</strong> Do not request a wall time longer than the credential can cover, and do not extend a running job beyond its validated proxy lifetime.</p>
+<p>For renewal, run <code>atlas_proxy</code> again in an authenticated EL9 session, then repeat the copy block above from the same campaign directory only after it succeeds. The <a href="../grid-certificates/#renew">grid chapter</a> also gives the manual commands. The temporary-file rename updates the shared source atomically. <strong>Queued tasks can use the replacement; already-running tasks keep their original copy.</strong> Do not request a wall time longer than the credential can cover, and do not extend a running job beyond its validated proxy lifetime.</p>
 <p>Leave the container and allocation with <code>exit</code> twice. The remaining preparation and <code>sbatch</code> commands run in a <strong>fresh Ubuntu login shell</strong>.</p>
 <h2 id="configure">6. Configure and freeze the analysis</h2>
 <pre class="bash"><code>cd &quot;$ATLAS_WORKDIR/jobs/net2-susy15-v1&quot;

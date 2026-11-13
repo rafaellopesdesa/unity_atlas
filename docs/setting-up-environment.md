@@ -263,6 +263,12 @@ export APPTAINERENV_USER_PI="$USER_PI"
 export APPTAINERENV_USER="$USER"
 export APPTAINERENV_ATLAS_WORKDIR="$ATLAS_WORKDIR"
 
+# Install this optional function as described in Grid certificates and authentication.
+# Loading its definition does not create a proxy or prompt for a passphrase.
+if [[ -r "$HOME/.config/unity-atlas/atlas-proxy.sh" ]]; then
+    source "$HOME/.config/unity-atlas/atlas-proxy.sh"
+fi
+
 if [[ $- == *i* ]]; then
     alias setupATLAS='source ${ATLAS_LOCAL_ROOT_BASE}/user/atlasLocalSetup.sh'
     alias unity_cpu='salloc --partition=cpu --nodes=1 --ntasks=1 --cpus-per-task=4 --mem=16G --time=02:00:00'
@@ -284,7 +290,7 @@ if [[ $- == *i* ]]; then
 fi
 ```
 
-The `PATH` line makes Pixi and its personal command-line tools available after you follow [Using Pixi](../using-pixi/#installation). It is safe to include before installing Pixi.
+The `PATH` line makes Pixi and its personal command-line tools available after you follow [Using Pixi](../using-pixi/#installation). It is safe to include before installing Pixi. The optional source block enables `atlas_proxy` after you [install the grid-proxy helper](../grid-certificates/#proxy-helper); it is also safe to include before installation. The function creates or renews a proxy only when you invoke it inside a configured EL9 session.
 
 Reload it in the **host shell** with `source ~/.bashrc`. The GPU workflow is then:
 

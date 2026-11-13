@@ -155,6 +155,43 @@ The requested 12 hours can be shortened by certificate expiry or server policy. 
 
 **Do not set `X509_USER_PROXY` by running `voms-proxy-info -path` before a proxy exists.** If that lookup fails, assigning its output can export an empty string. The explicit `-out` recipe above avoids that failure.
 
+### Recommended shortcut: `atlas_proxy` {#proxy-helper}
+
+For routine sessions, define a Bash function so that creating or renewing a proxy takes one command. This creates the **short-lived session proxy** from your installed certificate and encrypted key; obtaining or renewing the personal certificate itself still follows the earlier CA and registration steps.
+
+Install the [atlas-proxy.sh helper](../examples/atlas-proxy.sh) **once**, on the Unity login node:
+
+```bash
+mkdir -p "$HOME/.config/unity-atlas"
+curl --fail --location --output "$HOME/.config/unity-atlas/atlas-proxy.sh" \
+    https://raw.githubusercontent.com/rafaellopesdesa/unity_atlas/main/examples/atlas-proxy.sh
+```
+
+Add these lines to your existing `.bashrc` if they are not already present. The environment chapter's updated [shell configuration](../setting-up-environment/#bashrc) includes them:
+
+```bash
+if [[ -r "$HOME/.config/unity-atlas/atlas-proxy.sh" ]]; then
+    source "$HOME/.config/unity-atlas/atlas-proxy.sh"
+fi
+```
+
+Sourcing this file only defines `atlas_proxy`; it does not contact VOMS or prompt at login. In a **fresh EL9 session**, initialize the grid tools and invoke it explicitly:
+
+```bash
+lsetup rucio
+# Also load the function if this container did not read your .bashrc.
+source "$HOME/.config/unity-atlas/atlas-proxy.sh"
+atlas_proxy
+```
+
+It requests 12 hours by default. To request another lifetime, use `atlas_proxy 24:00`; the server or certificate may shorten the request, so inspect the lifetimes printed by the helper.
+
+The helper uses `$HOME/.globus/usercert.pem` and `$HOME/.globus/userkey.pem` with explicit `-cert` and `-key` arguments. It creates a private session directory, supplies a nonempty `-out` path, checks the proxy and ATLAS attributes, and exports `X509_USER_PROXY` and `ATLAS_PROXY_DIR` in your current shell only after success. If your certificate/key filenames differ, adjust the two paths in your installed helper.
+
+Calling `atlas_proxy` again in the same session renews at the same path. The replacement is validated before it replaces the old file, so failed authentication does not discard an existing proxy. Enter the private-key passphrase at the terminal; it is not stored in `.bashrc`. Run the function directly, not as `$(atlas_proxy)` or in a separate shell, because its exports must remain in the current shell.
+
+For Codex's isolated grid tools, the optional second argument selects its launcher: `atlas_proxy 12:00 "$MCP_DIR/atlas-mcp-env.sh"`. The [Codex chapter](../codex-agents/#grid-auth) sets up that launcher. The helper does not run `lsetup` itself or change your analysis software environment.
+
 ## 6. Use the proxy with your tools {#use-proxy}
 
 For Rucio, set the account associated with your ATLAS identity and select proxy authentication:
@@ -168,13 +205,19 @@ Your Rucio account may differ from Unity's `$USER`. These exports select an exis
 
 Keep the proxy readable by the process that needs it. A new node or container may have a different `/tmp`, and a new terminal does not automatically inherit your exports. Recreate the proxy in the session where you will use it if the existing file is unavailable. In a Slurm job, a proxy made on another node is not automatically accessible merely because its filename is exported. [Running on datasets with Slurm](../running-on-datasets/#worker-proxy) shows how to publish a private shared copy and validate a separate proxy on each worker.
 
-Do not put a temporary proxy path or automatic proxy creation into `.bashrc`. Keep session credentials separate from the persistent directory and software shortcuts. Proxy creation establishes your identity and ATLAS attributes; an individual service still applies its account and resource permissions.
+Put the helper definition in `.bashrc`, and invoke `atlas_proxy` when you need it. Do not save a temporary proxy path or invoke proxy creation automatically at login. Proxy creation establishes your identity and ATLAS attributes; an individual service still applies its account and resource permissions.
 
 ## 7. Renew and finish {#renew}
 
 ### Renew a session proxy
 
-Renew at the same filename so tools already configured with that path can use it. In the same container and terminal:
+With the recommended helper, renew in the same container and terminal with:
+
+```bash
+atlas_proxy
+```
+
+Without the helper, use the explicit commands below. Renew at the same filename so tools already configured with that path can use it:
 
 ```bash
 if [[ -n ${X509_USER_PROXY:-} && -d ${ATLAS_PROXY_DIR:-} ]]; then
@@ -236,6 +279,8 @@ If it still fails with a valid, writable output path, add `-debug` to the `voms-
 
 | Symptom | What to check |
 | --- | --- |
+| `atlas_proxy: command not found` | Install the helper once, then source `$HOME/.config/unity-atlas/atlas-proxy.sh` inside this container. The `.bashrc` source block defines it for shells that load that configuration. |
+| `ATLAS_PROXY_DIR is not a private owned session directory` | Do not reuse that directory. Run `unset ATLAS_PROXY_DIR`, then invoke `atlas_proxy` to create a new private directory; the old file is not removed. |
 | OpenSSL cannot read an older PKCS#12 bundle and reports an unsupported algorithm | Add `-legacy` to the affected `openssl pkcs12` extraction command. Keep encryption on the resulting PEM key. |
 | Cannot decrypt the private key | Use the PEM passphrase chosen during conversion, which may differ from the bundle password. Check the file with `openssl pkey -check -noout`. |
 | Browser does not offer the certificate or IAM does not show a link option | Import the personal certificate and its key, check expiry, and ensure the browser presents the intended certificate. Consult CERN's browser help if CA trust needs configuring. |

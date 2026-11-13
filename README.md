@@ -4,11 +4,11 @@ A growing guide to using UMass Unity as an analysis facility for ATLAS.
 
 The first chapter, **Setting up the environment**, covers one-time creation of `/work/${USER_PI}/${USER}` and `/project/${USER_PI}/${USER}`, persistent `USER_PI` configuration, Slurm CPU/GPU allocations, CVMFS, an EL9 container through ATLASLocalRootBase and Apptainer, software selection, Bash shortcuts, and troubleshooting. `USER_PI` follows Unity's `pi_[PI's username]` convention, for example `pi_rclsa_umass_edu`. Later chapters assume those directory settings and interactive shortcuts are configured.
 
-The second chapter, **Grid certificates and authentication**, covers obtaining a personal grid certificate, linking it to ATLAS IAM, installing an encrypted certificate/key pair on Unity, and creating a VOMS proxy with explicit input and output paths. It includes renewal, cleanup, and troubleshooting. The rendered chapter is `grid-certificates/index.html`.
+The second chapter, **Grid certificates and authentication**, covers obtaining a personal grid certificate, linking it to ATLAS IAM, installing an encrypted certificate/key pair on Unity, and creating a VOMS proxy with explicit input and output paths. It includes the optional `.bashrc` helper `atlas_proxy` for creation and atomic renewal, plus cleanup and troubleshooting. The rendered chapter is `grid-certificates/index.html`.
 
 The third chapter, **Submitting jobs with Slurm**, explains worker-side environment setup and provides a self-contained PyROOT smoke test. Downloadable scripts are in `examples/slurm/`; the rendered chapter is `submitting-jobs/index.html`.
 
-The fourth chapter, **Running on datasets with Slurm**, connects Rucio replication at NET2_LOCALGROUPDISK to direct XRootD reads in local Unity arrays. It covers complete input manifests, worker proxies, per-file processing, bounded concurrency, validated results, retries, and merging. Downloadable helpers are in `examples/datasets/`; the rendered chapter is `running-on-datasets/index.html`.
+The fourth chapter, **Running on datasets with Slurm**, connects Rucio replication at NET2_LOCALGROUPDISK to direct XRootD reads in local Unity arrays, using a concrete `mc16_13TeV` SUSY15 dataset DID. It covers complete input manifests, worker proxies, per-file processing, bounded concurrency, validated results, retries, and merging. Downloadable helpers are in `examples/datasets/`; the rendered chapter is `running-on-datasets/index.html`.
 
 The fifth chapter, **Using Pixi**, covers installation in the user area, persistent `PATH` configuration, personal tools with `pixi global`, and `pixi install` / `pixi run` for existing projects. It links to the Carpentries introduction for creating environments and adding packages. The rendered chapter is `using-pixi/index.html`.
 
@@ -29,7 +29,7 @@ The rendered HTML, CSS, JavaScript, and `.nojekyll` are committed. No Jekyll the
 1. Edit the Markdown sources in `docs/`.
 2. For a new chapter, add its metadata to `docs/pages.json` in navigation order.
 3. With Python 3.11 or newer and [Pandoc](https://pandoc.org/installing.html) installed, run `python3 tools/build_site.py` from any directory. The sources use Pandoc Markdown syntax.
-4. Run `python3 tools/check_site.py`, `node --check assets/site.js`, and `bash -n examples/atlas-bashrc.sh`. For dataset helpers, also run `python3 -m unittest discover -s tests -v`; these tests exercise completeness and publication without grid credentials.
+4. Run `python3 tools/check_site.py`, `node --check assets/site.js`, and `bash -n examples/atlas-bashrc.sh`. For dataset and proxy helpers, also run `python3 -m unittest discover -s tests -v`; these tests exercise completeness, publication, and proxy renewal without grid credentials.
 5. If editing examples displayed in full, update their matching code blocks in `docs/` too. The site checker verifies that these displayed examples match the downloads, checks Bash syntax, JSON, and TOML, and parses the Python examples.
 6. Commit the sources **and** regenerated HTML/search index together.
 

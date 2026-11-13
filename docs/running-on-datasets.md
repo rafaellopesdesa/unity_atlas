@@ -64,14 +64,24 @@ cd "$ATLAS_WORKDIR/jobs/net2-susy15-v1"
 setupATLAS -c el9
 ```
 
-Inside EL9, follow the grid chapter's [proxy creation recipe](../grid-certificates/#create-proxy), including `lsetup rucio`, explicit certificate/key paths, and an explicit proxy output filename. Set your ATLAS Rucio account; it may differ from Unity's `$USER`:
+Inside EL9, use the grid chapter's recommended [`atlas_proxy` shortcut](../grid-certificates/#proxy-helper). It supplies the explicit certificate/key and proxy output paths. Install the helper once as described there; sourcing its file below also works when the container has not loaded your `.bashrc`.
+
+Set your ATLAS Rucio account; it may differ from Unity's `$USER`. The example DID below is a concrete SUSY15 dataset; replace it when processing another dataset:
 
 ```bash
 cd "$ATLAS_WORKDIR/jobs/net2-susy15-v1"
+lsetup rucio
+source "$HOME/.config/unity-atlas/atlas-proxy.sh"
+atlas_proxy
+```
+
+Continue only if `atlas_proxy` succeeds. The explicit [manual proxy recipe](../grid-certificates/#create-proxy) remains available if you have not installed the shortcut. Then configure Rucio and the dataset:
+
+```bash
 export RUCIO_ACCOUNT=YOUR_RUCIO_ACCOUNT
 export RUCIO_AUTH_TYPE=x509_proxy
 export RSE=NET2_LOCALGROUPDISK
-read -r -p 'Closed dataset DID (scope:name): ' DID
+DID='mc16_13TeV:mc16_13TeV.501261.MGPy8EG_s0zpzp2mu2e_500_100_10.deriv.DAOD_SUSY15.e8092_e7400_s3126_r11891_r11748_p4800_tid27118280_00'
 
 rucio --version
 rucio rse list --rses "$RSE"
@@ -79,7 +89,7 @@ rucio did show "$DID"
 rucio rule list --did "$DID"
 ```
 
-Use the **full dataset DID**, including scope, not a filename or an XRootD URL. A dataset is a set of files; a container is a set of datasets. For a container, inspect its contents with `rucio did content list "$CONTAINER_DID"`, choose its closed child datasets, and use a separate campaign for each. Do not close an official production dataset yourself; wait for completion or select a closed dataset.
+Use the **full dataset DID**, including scope, not a filename or an XRootD URL. This is the dataset containing the example file `DAOD_SUSY15.27118280._000001.pool.root.1`; the manifest will include all of its files. Still check its current replica and rule state before requesting another transfer. A dataset is a set of files; a container is a set of datasets. For a container, inspect its contents with `rucio did content list "$CONTAINER_DID"`, choose its closed child datasets, and use a separate campaign for each. Do not close an official production dataset yourself; wait for completion or select a closed dataset.
 
 Check existing rules before creating another one. An existing rule that retains this dataset at NET2 for your whole campaign may be sufficient. Otherwise request **one copy** at this exact RSE, for example for 14 days:
 
@@ -180,7 +190,7 @@ Inspect **both** the proxy and VOMS-attribute lifetimes. Each worker requires en
 
 The batch wrapper passes the relative proxy path explicitly because it uses `--export=NONE`. Inside EL9, the payload resolves it against that container's `$HOME`, copies it into a private worker `/tmp` directory, and validates the copy. It needs no private key, password prompt, or Rucio dataset query. It preserves the grid CA certificate-directory setting while keeping grid-tool Python and library setup separate from the analysis release.
 
-For renewal, create or renew a proxy interactively using the [grid chapter](../grid-certificates/#renew), then repeat the copy block above from the same campaign directory. The temporary-file rename updates the shared source atomically. **Queued tasks can use the replacement; already-running tasks keep their original copy.** Do not request a wall time longer than the credential can cover, and do not extend a running job beyond its validated proxy lifetime.
+For renewal, run `atlas_proxy` again in an authenticated EL9 session, then repeat the copy block above from the same campaign directory only after it succeeds. The [grid chapter](../grid-certificates/#renew) also gives the manual commands. The temporary-file rename updates the shared source atomically. **Queued tasks can use the replacement; already-running tasks keep their original copy.** Do not request a wall time longer than the credential can cover, and do not extend a running job beyond its validated proxy lifetime.
 
 Leave the container and allocation with `exit` twice. The remaining preparation and `sbatch` commands run in a **fresh Ubuntu login shell**.
 
