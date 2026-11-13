@@ -17,6 +17,10 @@ Obtain and register a personal grid certificate, install its encrypted private k
 
 Turn the interactive environment into a batch job. Includes downloadable scripts, a PyROOT smoke test, resource requests, logs, and troubleshooting.
 
+**[Running on datasets with Slurm →](running-on-datasets/)**
+
+Request a dataset replica at NET2_LOCALGROUPDISK, freeze a complete Rucio file manifest, and read it directly through XRootD from Unity jobs. Includes worker proxies, bounded arrays, validated outputs, retries, and merging.
+
 **[Using Pixi →](using-pixi/)**
 
 Install Pixi in your user area, manage personal command-line tools with `pixi global`, and use `pixi install` and `pixi run` with an existing project's environment.
@@ -43,6 +47,7 @@ Run Codex with your ATLAS release inside EL9. Install personal Rucio and AMI MCP
 | Apptainer container | Provide the EL9 userspace required by the ATLAS release. |
 | CVMFS | Deliver centrally maintained software and container images. |
 | Grid proxy | Authenticate to ATLAS grid services using your registered certificate identity and VO attributes. |
+| Rucio and NET2 storage | Arrange and retain dataset replicas; supply registered XRootD URLs for direct worker reads. |
 | Pixi environment | Supply a project's own packages and command-line tools. |
 | Your work directory | Keep analysis code, builds, inputs, and outputs on writable Unity storage. |
 
@@ -52,7 +57,7 @@ The environment chapter defines the directory settings and shell helpers used th
 
 ## About this guide
 
-The chapters cover interactive environment setup, grid certificates and authentication, Slurm batch jobs, Pixi, VS Code, JupyterLab, and Codex with authenticated catalog access. Further chapters will cover data movement, analysis workflows, and machine learning as those procedures are established.
+The chapters cover interactive environment setup, grid certificates and authentication, Slurm jobs on NET2 datasets, Pixi, VS Code, JupyterLab, and Codex with authenticated catalog access. Further chapters will extend analysis workflows and machine learning as those procedures are established.
 
 The [Unity documentation](https://docs.unity.rc.umass.edu/documentation/) is the reference for cluster access, storage, and scheduling. The [ATLAS Software Documentation](https://atlas-software.docs.cern.ch/) is the reference for ATLAS software and analysis procedures.
 

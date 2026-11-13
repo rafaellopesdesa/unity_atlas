@@ -249,7 +249,7 @@ test -s result.root
 
 If your analysis uses a compiled ATLAS package, build it in an EL9 allocation with the same release and platform, then source that build's exact `setup.sh` after `asetup` in the payload. Keep the build accessible on shared storage. Do not build the same directory concurrently from multiple jobs.
 
-Remote data access and authentication need their own setup; having software on CVMFS does not grant access to protected data. The initial smoke test deliberately needs neither.
+Remote data access and authentication need their own setup; having software on CVMFS does not grant access to protected data. Continue with [Running on datasets with Slurm](../running-on-datasets/) for Rucio replication to NET2, worker credentials, XRootD inputs, and retryable arrays.
 
 ### Adjust CPU, memory, and time
 
@@ -296,5 +296,5 @@ Add `nvidia-smi` after setup inside `run-atlas.sh` to inspect device visibility,
 - [Slurm sbatch](https://slurm.schedmd.com/sbatch.html), [sacct](https://slurm.schedmd.com/sacct.html), and [job exit codes](https://slurm.schedmd.com/job_exit_code.html).
 - [Apptainer NVIDIA GPU support](https://apptainer.org/docs/user/latest/gpu.html).
 
-**Next:** [Using Pixi](../using-pixi/) covers personal tools and project-specific package environments.
+**Next:** [Running on datasets with Slurm](../running-on-datasets/) extends this setup to a complete ATLAS dataset at NET2_LOCALGROUPDISK.
 

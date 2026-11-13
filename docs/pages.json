@@ -28,6 +28,13 @@
     "description": "Run ATLAS analysis in EL9 containers on Unity batch workers, with downloadable Slurm scripts."
   },
   {
+    "source": "running-on-datasets.md",
+    "output": "running-on-datasets/index.html",
+    "title": "Running on datasets with Slurm",
+    "label": "Running on datasets with Slurm",
+    "description": "Replicate a dataset to NET2_LOCALGROUPDISK, freeze its XRootD file manifest, and run validated, restartable Unity Slurm array tasks."
+  },
+  {
     "source": "using-pixi.md",
     "output": "using-pixi/index.html",
     "title": "Using Pixi",

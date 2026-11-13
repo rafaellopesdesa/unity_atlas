@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Running on datasets with Slurm | ATLAS on Unity</title>
+  <meta name="description" content="Replicate a dataset to NET2_LOCALGROUPDISK, freeze its XRootD file manifest, and run validated, restartable Unity Slurm array tasks.">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script defer src="../assets/search-index.js"></script>
+  <script defer src="../assets/site.js"></script>
+</head>
+<body data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <a class="brand" href="../index.html"><span class="brand-mark" aria-hidden="true">A / U</span><span>ATLAS Analysis on Unity<small>UMass Amherst · Analysis facility guide</small></span></a>
+  <nav class="external" aria-label="External resources"><a href="https://docs.unity.rc.umass.edu/documentation/">Unity docs ↗</a><a href="https://atlas-software.docs.cern.ch/">ATLAS docs ↗</a><a href="https://github.com/rafaellopesdesa/unity_atlas">GitHub ↗</a></nav>
+  <button class="menu-toggle" aria-controls="sidebar" aria-expanded="false" hidden>Menu</button>
+</header>
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="search" hidden><label for="search-input">Search this guide</label><input id="search-input" type="search" placeholder="Search topics or commands…" autocomplete="off"><p id="search-status" aria-live="polite"></p><ul id="search-results" hidden></ul></div>
+    <p class="nav-label">Documentation</p>
+    <nav class="chapters" aria-label="Chapters"><a href="../index.html">Overview</a><a href="../setting-up-environment/index.html">Setting up the environment</a><a href="../grid-certificates/index.html">Grid certificates and authentication</a><a href="../submitting-jobs/index.html">Submitting jobs with Slurm</a><a aria-current="page" href="index.html">Running on datasets with Slurm</a><a href="../using-pixi/index.html">Using Pixi</a><a href="../using-vscode/index.html">Using VS Code</a><a href="../using-jupyterlab/index.html">Using JupyterLab</a><a href="../codex-agents/index.html">Codex Agents</a></nav>
+    <div class="sidebar-note"><span class="status-dot"></span> Growing guide<p>Environment setup, batch jobs, Pixi, VS Code, JupyterLab, and Codex Agents. More analysis workflows will follow.</p></div>
+    <a class="sidebar-source" href="https://github.com/rafaellopesdesa/unity_atlas/issues">Report a problem ↗</a>
+  </aside>
+  <main id="main" tabindex="-1">
+    <div class="breadcrumb">Documentation <span>/</span> Running on datasets with Slurm</div>
+    <div class="eyebrow">ATLAS · UMASS UNITY</div>
+    <h1>Running on datasets with Slurm</h1>
+    <article><p>Run a local Unity Slurm array over an ATLAS dataset stored at <strong>NET2_LOCALGROUPDISK</strong>. Rucio arranges and protects the replica; the workers read its files directly through XRootD. No NFS mount or full dataset download to Unity is required.</p>
+<p>Complete <a href="../grid-certificates/">Grid certificates and authentication</a> and <a href="../submitting-jobs/">Submitting jobs with Slurm</a> first. This chapter uses the environment chapter's <code>USER_PI</code>, <code>$USER</code>, <code>ATLAS_WORKDIR</code>, and shell shortcuts. Unity's PI directory follows <code>pi_[PI's username]</code>, for example <code>pi_rclsa_umass_edu</code>.</p>
+<h2 id="workflow">1. Choose a reproducible unit of work</h2>
+<p>The starting point is <strong>one closed dataset, one frozen file manifest, and one file per array task</strong>. Limit the number of simultaneous tasks and start with a single-file pilot. This keeps retries small and gives every input a stable output location.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Stage</th>
+<th>Where it runs</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Request a replica</td>
+<td>Interactive EL9 session with Rucio</td>
+<td>A rule retaining one dataset copy at NET2.</td>
+</tr>
+<tr class="even">
+<td>Freeze the input list</td>
+<td>The same authenticated session</td>
+<td><code>manifest.json</code>, with one available NET2 XRootD URL per file.</td>
+</tr>
+<tr class="odd">
+<td>Submit</td>
+<td>Fresh Unity Ubuntu login shell</td>
+<td>A Slurm array with a concurrency limit.</td>
+</tr>
+<tr class="even">
+<td>Process</td>
+<td>EL9 container on each worker</td>
+<td>One validated histogram and completion receipt per input.</td>
+</tr>
+<tr class="odd">
+<td>Check and retry</td>
+<td>Unity login shell</td>
+<td>A list of unfinished inputs, or a complete list for merging.</td>
+</tr>
+</tbody>
+</table>
+<p>The example reads a numeric branch and fills a ROOT histogram. It is an executable starting point for connecting your analysis to the workflow, not an ATLAS event selection. Later in the chapter we explain <a href="#your-analysis">how to replace it</a>.</p>
+<h2 id="prepare">2. Prepare a campaign directory</h2>
+<p>Use a new directory for each dataset/configuration/code version. Here the campaign name is <code>net2-susy15-v1</code>; replace it consistently if you choose another name. On the <strong>Ubuntu login node</strong>:</p>
+<pre class="bash"><code>mkdir -p &quot;$ATLAS_WORKDIR/jobs&quot;
+if mkdir &quot;$ATLAS_WORKDIR/jobs/net2-susy15-v1&quot;; then
+    (
+        set -e
+        cd &quot;$ATLAS_WORKDIR/jobs/net2-susy15-v1&quot;
+        mkdir logs
+        for name in make-manifest.py atlas-dataset.sbatch run-dataset.sh \
+                    analyse-file.py dataset_status.py; do
+            curl --fail --location --output &quot;$name&quot; \
+                &quot;https://raw.githubusercontent.com/rafaellopesdesa/unity_atlas/main/examples/datasets/$name&quot;
+        done
+    )
+else
+    echo &#39;Choose a new campaign name; the existing directory was not changed.&#39; &gt;&amp;2
+fi</code></pre>
+<p>Stop if directory creation or a download fails. Do not reuse a campaign containing old results. The five downloadable helpers are:</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Helper</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><a href="../examples/datasets/make-manifest.py">make-manifest.py</a></td>
+<td>Check dataset completeness and select registered NET2 file URLs.</td>
+</tr>
+<tr class="even">
+<td><a href="../examples/datasets/atlas-dataset.sbatch">atlas-dataset.sbatch</a></td>
+<td>Allocate a worker and enter EL9.</td>
+</tr>
+<tr class="odd">
+<td><a href="../examples/datasets/run-dataset.sh">run-dataset.sh</a></td>
+<td>Validate a worker proxy, load the release, and launch the analysis.</td>
+</tr>
+<tr class="even">
+<td><a href="../examples/datasets/analyse-file.py">analyse-file.py</a></td>
+<td>Read one file, validate the output, and publish its result atomically.</td>
+</tr>
+<tr class="odd">
+<td><a href="../examples/datasets/dataset_status.py">dataset_status.py</a></td>
+<td>Validate results and produce retry or merge lists.</td>
+</tr>
+</tbody>
+</table>
+<p>Keep this directory on shared <code>/work/${USER_PI}/${USER}</code> storage. Slurm transfers the submission script, not the other files. Credentials will be stored separately in private shared home storage.</p>
+<h2 id="replicate">3. Request and retain the NET2 replica</h2>
+<p>Start an interactive EL9 session using the existing helpers:</p>
+<pre class="bash"><code># Unity login node
+unity_cpu
+
+# Allocated Ubuntu compute node
+module load apptainer/latest
+cd &quot;$ATLAS_WORKDIR/jobs/net2-susy15-v1&quot;
+setupATLAS -c el9</code></pre>
+<p>Inside EL9, follow the grid chapter's <a href="../grid-certificates/#create-proxy">proxy creation recipe</a>, including <code>lsetup rucio</code>, explicit certificate/key paths, and an explicit proxy output filename. Set your ATLAS Rucio account; it may differ from Unity's <code>$USER</code>:</p>
+<pre class="bash"><code>cd &quot;$ATLAS_WORKDIR/jobs/net2-susy15-v1&quot;
+export RUCIO_ACCOUNT=YOUR_RUCIO_ACCOUNT
+export RUCIO_AUTH_TYPE=x509_proxy
+export RSE=NET2_LOCALGROUPDISK
+read -r -p &#39;Closed dataset DID (scope:name): &#39; DID
+
+rucio --version
+rucio rse list --rses &quot;$RSE&quot;
+rucio did show &quot;$DID&quot;
+rucio rule list --did &quot;$DID&quot;</code></pre>
+<p>Use the <strong>full dataset DID</strong>, including scope, not a filename or an XRootD URL. A dataset is a set of files; a container is a set of datasets. For a container, inspect its contents with <code>rucio did content list "$CONTAINER_DID"</code>, choose its closed child datasets, and use a separate campaign for each. Do not close an official production dataset yourself; wait for completion or select a closed dataset.</p>
+<p>Check existing rules before creating another one. An existing rule that retains this dataset at NET2 for your whole campaign may be sufficient. Otherwise request <strong>one copy</strong> at this exact RSE, for example for 14 days:</p>
+<pre class="bash"><code>rucio rule add --copies 1 --rses &quot;$RSE&quot; --lifetime 1209600 &quot;$DID&quot;</code></pre>
+<p>Record the returned rule ID. This schedules a site-to-site transfer; it does not download the dataset to Unity. The example lifetime is in seconds and must cover the transfer, queueing, processing, and retries. It is not a statement of NET2 quota or retention policy.</p>
+<pre class="bash"><code>read -r -p &#39;Rule ID to monitor: &#39; RULE_ID
+printf &#39;%s\n&#39; &quot;$RULE_ID&quot; &gt; rule-id.txt
+rucio rule show &quot;$RULE_ID&quot;</code></pre>
+<p>Continue when the rule is <strong>OK</strong> and all file locks are satisfied. A rule ID alone is not evidence that the transfer has finished. If it is stuck, use <code>rucio rule show --examine "$RULE_ID"</code> and contact the relevant support team with the rule ID. Do not submit repeated rules to retry the same transfer. You can leave the allocation while waiting and return in a later authenticated session.</p>
+<p>ATLAS membership permitting reads does not automatically grant your Rucio account quota or permission to place data at this RSE. If the request is rejected, ask the NET2 storage contact for the appropriate quota, group account, or approval procedure. Do not change accounts or request approval flags without knowing the site's policy. Files present without a protecting rule can later be deleted by Rucio.</p>
+<h3 id="older-rucio-clients">Older Rucio clients</h3>
+<p>The commands above use the newer grouped CLI. If the client supplied by <code>lsetup rucio</code> does not recognize it, use the equivalent legacy command below. Run <strong>one form</strong>, not both:</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Newer command</th>
+<th>Legacy equivalent</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>rucio rse list --rses "$RSE"</code></td>
+<td><code>rucio list-rses --rses "$RSE"</code></td>
+</tr>
+<tr class="even">
+<td><code>rucio did show "$DID"</code></td>
+<td><code>rucio stat "$DID"</code></td>
+</tr>
+<tr class="odd">
+<td><code>rucio did content list "$CONTAINER_DID"</code></td>
+<td><code>rucio list-content "$CONTAINER_DID"</code></td>
+</tr>
+<tr class="even">
+<td><code>rucio rule list --did "$DID"</code></td>
+<td><code>rucio list-rules "$DID"</code></td>
+</tr>
+<tr class="odd">
+<td><code>rucio rule add --copies 1 --rses "$RSE" --lifetime 1209600 "$DID"</code></td>
+<td><code>rucio add-rule --lifetime 1209600 "$DID" 1 "$RSE"</code></td>
+</tr>
+<tr class="even">
+<td><code>rucio rule show "$RULE_ID"</code></td>
+<td><code>rucio rule-info "$RULE_ID"</code></td>
+</tr>
+<tr class="odd">
+<td><code>rucio rule show --examine "$RULE_ID"</code></td>
+<td><code>rucio rule-info --examine "$RULE_ID"</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="manifest">4. Freeze a complete input manifest</h2>
+<p>Still inside EL9 with <code>lsetup rucio</code> and a valid proxy, run:</p>
+<pre class="bash"><code>python make-manifest.py --did &quot;$DID&quot; --rse &quot;$RSE&quot; --output manifest.json</code></pre>
+<p>The helper uses Rucio's Python client instead of parsing a printed table. It:</p>
+<ul>
+<li>Requires a closed, nonempty dataset and independently lists <strong>all</strong> its files.</li>
+<li>Queries available, directly readable <code>root://</code> replicas at <code>NET2_LOCALGROUPDISK</code>, respecting the RSE's read-availability setting.</li>
+<li>Selects exactly one registered URL per file, sorts by file DID, and records scope, name, size, and catalogue checksums.</li>
+<li>Refuses duplicates, missing replicas, inconsistent metadata, or a changed dataset listing. A partial transfer cannot silently become a partial analysis.</li>
+<li>Publishes <code>manifest.json</code> only when complete, and refuses to overwrite an existing manifest.</li>
+</ul>
+<p>Inspect the snapshot and optionally export a simple URL list for other tools:</p>
+<pre class="bash"><code>python - &lt;&lt;&#39;PY&#39;
+import json
+with open(&#39;manifest.json&#39;) as stream:
+    manifest = json.load(stream)
+files = manifest[&#39;files&#39;]
+print(&#39;Dataset:&#39;, manifest[&#39;did&#39;])
+print(&#39;RSE:&#39;, manifest[&#39;rse&#39;])
+print(&#39;Files:&#39;, len(files))
+print(&#39;Total size: %.3f GB&#39; % (sum(f[&#39;bytes&#39;] for f in files) / 1e9))
+print(&#39;First URL:&#39;, files[0][&#39;url&#39;])
+with open(&#39;inputs.txt&#39;, &#39;x&#39;) as stream:
+    stream.writelines(f[&#39;url&#39;] + &#39;\n&#39; for f in files)
+PY</code></pre>
+<p>The Slurm example uses <code>manifest.json</code>, which preserves more information than <code>inputs.txt</code>. Catalogue availability is checked at preparation time; worker reads can still fail later, which is why output validation and retries remain necessary. Stored catalogue checksums are provenance; selective ROOT reads do not recompute a whole-file checksum.</p>
+<p><strong>Use the URLs Rucio returns.</strong> Do not reconstruct hashed <code>/rucio/...</code> directories or replace hostnames with string substitutions. <code>root://xrootd.data.net2.mghpcc.org:1094//atlaslocalgroupdisk/...</code> is a NET2 access pattern, but the manifest must follow the registered read endpoints. If those endpoints are inaccessible from a worker, resolve that with NET2/Rucio configuration before scaling up.</p>
+<h2 id="worker-proxy">5. Make the proxy available to workers</h2>
+<p>The grid chapter's <code>/tmp</code> proxy belongs to its node/container. A batch worker cannot access it merely because its path was exported. Copy the valid proxy to a <strong>private shared-home directory</strong>, outside the campaign. Run this in the authenticated EL9 session, from the campaign directory:</p>
+<pre class="bash"><code>PROXY_REL=&quot;.globus/unity-atlas-proxies/$(basename &quot;$PWD&quot;)/x509up&quot;
+PROXY_DIR=&quot;$HOME/$(dirname &quot;$PROXY_REL&quot;)&quot;
+umask 077
+mkdir -p &quot;$PROXY_DIR&quot;
+chmod 700 &quot;$HOME/.globus&quot; &quot;$HOME/.globus/unity-atlas-proxies&quot; &quot;$PROXY_DIR&quot;
+
+if PROXY_NEW=$(mktemp &quot;$PROXY_DIR/.x509up.XXXXXXXX&quot;); then
+    if cp -- &quot;$X509_USER_PROXY&quot; &quot;$PROXY_NEW&quot; \
+        &amp;&amp; chmod 600 &quot;$PROXY_NEW&quot; \
+        &amp;&amp; voms-proxy-info -file &quot;$PROXY_NEW&quot; -exists \
+        &amp;&amp; voms-proxy-info -file &quot;$PROXY_NEW&quot; -acexists atlas \
+        &amp;&amp; voms-proxy-info -file &quot;$PROXY_NEW&quot; -all; then
+        mv -f -- &quot;$PROXY_NEW&quot; &quot;$HOME/$PROXY_REL&quot;
+    else
+        rm -f -- &quot;$PROXY_NEW&quot;
+        echo &#39;Proxy was not published; fix authentication before submitting.&#39; &gt;&amp;2
+    fi
+fi</code></pre>
+<p>Inspect <strong>both</strong> the proxy and VOMS-attribute lifetimes. Each worker requires enough remaining validity for its requested wall time plus 15 minutes. The default two-hour job therefore needs more than 2 hours 15 minutes remaining <strong>when it starts</strong>, after queueing.</p>
+<p>The batch wrapper passes the relative proxy path explicitly because it uses <code>--export=NONE</code>. Inside EL9, the payload resolves it against that container's <code>$HOME</code>, copies it into a private worker <code>/tmp</code> directory, and validates the copy. It needs no private key, password prompt, or Rucio dataset query. It preserves the grid CA certificate-directory setting while keeping grid-tool Python and library setup separate from the analysis release.</p>
+<p>For renewal, create or renew a proxy interactively using the <a href="../grid-certificates/#renew">grid chapter</a>, then repeat the copy block above from the same campaign directory. The temporary-file rename updates the shared source atomically. <strong>Queued tasks can use the replacement; already-running tasks keep their original copy.</strong> Do not request a wall time longer than the credential can cover, and do not extend a running job beyond its validated proxy lifetime.</p>
+<p>Leave the container and allocation with <code>exit</code> twice. The remaining preparation and <code>sbatch</code> commands run in a <strong>fresh Ubuntu login shell</strong>.</p>
+<h2 id="configure">6. Configure and freeze the analysis</h2>
+<pre class="bash"><code>cd &quot;$ATLAS_WORKDIR/jobs/net2-susy15-v1&quot;
+read -r -p &#39;ATLAS project,exact-version: &#39; ATLAS_RELEASE
+read -r -p &#39;Numeric branch (for example MuonsAuxDyn.pt): &#39; ATLAS_BRANCH
+
+python3 - &quot;$ATLAS_RELEASE&quot; &quot;$ATLAS_BRANCH&quot; &lt;&lt;&#39;PY&#39;
+import json
+import sys
+config = dict(release=sys.argv[1], tree=&#39;CollectionTree&#39;, branch=sys.argv[2],
+              bins=100, xmin=0.0, xmax=200000.0)
+with open(&#39;analysis-config.json&#39;, &#39;x&#39;) as stream:
+    json.dump(config, stream, indent=2)
+    stream.write(&#39;\n&#39;)
+PY</code></pre>
+<p>Choose the exact release that supports your input and analysis. <code>MuonsAuxDyn.pt</code> is an example, not a promise that every DAOD has that branch; inspect your file's schema and select an existing numeric scalar/vector branch. Adjust the tree name and histogram range in <code>analysis-config.json</code> before freezing it. The example range is suitable for a momentum expressed in MeV.</p>
+<p>The Python analysis opens the file, checks its size against the manifest, books a histogram and an event count, and runs the event loop over the selected branch. It checks the processed event count and reopens the output before publishing it. It does not treat a metadata-only file open as successful analysis.</p>
+<p>Freeze the input list, configuration, and code together:</p>
+<pre class="bash"><code>sha256sum manifest.json analysis-config.json make-manifest.py \
+    atlas-dataset.sbatch run-dataset.sh analyse-file.py dataset_status.py \
+    &gt; campaign.sha256
+sha256sum --check --strict campaign.sha256</code></pre>
+<p>Do not edit these files or regenerate this checksum list while jobs are queued, running, or being retried. Both host and container check it. For a new analysis version, create a new campaign directory; keep the original manifest and results as provenance. <code>logs/</code> must already exist before submission.</p>
+<h2 id="submit">7. Run one task, then scale out</h2>
+<p>From the <strong>Ubuntu login shell</strong>, submit a pilot for manifest index zero:</p>
+<pre class="bash"><code>PROXY_REL=&quot;.globus/unity-atlas-proxies/$(basename &quot;$PWD&quot;)/x509up&quot;
+if PILOT_ID=$(sbatch --parsable --array=0 atlas-dataset.sbatch &quot;$USER_PI&quot; &quot;$PROXY_REL&quot;); then
+    PILOT_ID=${PILOT_ID%%;*}
+    printf &#39;Pilot job: %s\n&#39; &quot;$PILOT_ID&quot;
+fi</code></pre>
+<p>The defaults are one CPU, 4 GB, and two hours per task. Wait for completion and inspect:</p>
+<pre class="bash"><code>squeue --jobs=&quot;$PILOT_ID&quot;
+sacct --jobs=&quot;$PILOT_ID&quot; --format=JobID,State,ExitCode,Elapsed,MaxRSS
+tail -n 50 &quot;logs/atlas-dataset-${PILOT_ID}_0.out&quot;
+tail -n 50 &quot;logs/atlas-dataset-${PILOT_ID}_0.err&quot;
+python3 dataset_status.py --campaign &quot;$PWD&quot;</code></pre>
+<p>The status tool reports <code>1/N</code> complete after a successful pilot and returns nonzero while the whole dataset is unfinished. Inspect <code>results/task-000000/result.root</code> and <code>receipt.json</code>, and require Slurm <code>COMPLETED</code> with exit code <code>0:0</code>. If configuration or analysis code needs changing, make a fresh campaign before launching the dataset. Adjust resources based on the pilot's time and memory, not on the bulk-transfer rate alone.</p>
+<p>Get the file count and inspect the cluster's array limits:</p>
+<pre class="bash"><code>NFILES=$(python3 -c &#39;import json; print(len(json.load(open(&quot;manifest.json&quot;))[&quot;files&quot;]))&#39;)
+scontrol show config | grep -E &#39;MaxArraySize|SchedulerParameters&#39;
+printf &#39;Dataset has %s tasks\n&#39; &quot;$NFILES&quot;</code></pre>
+<p><code>MaxArraySize</code> limits the highest array index, and site policy can also limit task counts and submitted jobs. If the dataset fits those limits, submit with at most <strong>four simultaneous tasks</strong> initially:</p>
+<pre class="bash"><code>if JOB_ID=$(sbatch --parsable --array=&quot;0-$((NFILES-1))%4&quot; \
+    atlas-dataset.sbatch &quot;$USER_PI&quot; &quot;$PROXY_REL&quot;); then
+    JOB_ID=${JOB_ID%%;*}
+    printf &#39;Dataset array: %s\n&#39; &quot;$JOB_ID&quot;
+fi</code></pre>
+<p>The completed pilot result is validated and reused rather than counted twice. A task publishes to <code>results/task-INDEX/</code> only after its temporary output and receipt pass validation. Retries use the same manifest index. Interrupted temporary directories do not count as completed inputs.</p>
+<p>Use command-line options such as <code>--cpus-per-task=4 --mem=8G --time=01:00:00</code> to override resources. The sample enables ROOT threading only up to the CPU allocation. Increase <code>%4</code> gradually after measuring event throughput, memory, and the effect of concurrent readers. A fast single-file transfer does not establish the capacity available to every simultaneous job.</p>
+<h3 id="datasets-larger-than-one-array">Datasets larger than one array</h3>
+<p>The optional third script argument is a <strong>manifest offset</strong>. For example, a second window of 500 files uses local array indices <code>0-499</code> and offset <code>500</code>, which process manifest indices <code>500-999</code>:</p>
+<pre class="bash"><code># Example only: requires at least 1000 files and a site limit permitting 500 tasks.
+sbatch --array=0-499%4 atlas-dataset.sbatch &quot;$USER_PI&quot; &quot;$PROXY_REL&quot; 500</code></pre>
+<p>Submit only windows within the manifest, shorten the final window, and finish one window before submitting the next if you want a global concurrency limit of four. <code>%4</code> is a limit <strong>per array</strong>, not across all your arrays. Global manifest indices remain stable even though Slurm indices restart at zero.</p>
+<h2 id="results">8. Check completeness, retry, and merge</h2>
+<p>Monitor arrays with <code>squeue</code> and <code>sacct</code> as above. After the relevant arrays have stopped, validate the published results:</p>
+<pre class="bash"><code>python3 dataset_status.py --campaign &quot;$PWD&quot; --retry-list retry-1.txt</code></pre>
+<p>The helper checks every expected input, its code/configuration hashes, event counts, and the output's size and SHA-256. It returns nonzero for unfinished or invalid results and writes their manifest indices to <code>retry-1.txt</code>. It refuses to overwrite old lists; use <code>retry-2.txt</code> for a later pass. A Slurm success flag or the mere existence of a ROOT file is insufficient.</p>
+<p>Inspect the failures, renew the shared proxy if needed, and fix operational causes before retrying. For a dataset using a single zero-offset array:</p>
+<pre class="bash"><code>RETRY=$(cat retry-1.txt)
+if [[ -n &quot;$RETRY&quot; ]]; then
+    sbatch --array=&quot;${RETRY}%4&quot; atlas-dataset.sbatch &quot;$USER_PI&quot; &quot;$PROXY_REL&quot;
+fi</code></pre>
+<p>For offset windows, the retry list contains <strong>global</strong> manifest indices, including files in future windows that have not run yet. First select only indices belonging to the window you are retrying, then subtract its offset to obtain local Slurm indices and pass that offset again. For example, global index <code>507</code> is <code>--array=7</code> with offset <code>500</code>. Keep retry arrays within the same site limits.</p>
+<p>A published result that fails validation is deliberately not overwritten. With its tasks stopped, preserve it under a separate <code>quarantine/</code> directory before retrying that index. Do not delete a valid result to force a rerun; changed analysis code belongs in a new campaign.</p>
+<p>Only when every file has a valid result should you produce the merge list:</p>
+<pre class="bash"><code>python3 dataset_status.py --campaign &quot;$PWD&quot; --outputs outputs.txt</code></pre>
+<p>If anything is incomplete, no new merge list is written. The list contains exactly one result per input, in manifest order. Do not collect outputs with a broad wildcard over original jobs, retries, and temporary directories.</p>
+<p>For the example histograms, merge <strong>inside an allocated EL9 session with the same release</strong>. Revalidate the complete manifest and merge those exact outputs, avoiding shell argument-length limits. Publish the merged file only after success:</p>
+<pre class="bash"><code>cd &quot;$ATLAS_WORKDIR/jobs/net2-susy15-v1&quot;
+ATLAS_RELEASE=$(python3 -c &#39;import json; print(json.load(open(&quot;analysis-config.json&quot;))[&quot;release&quot;])&#39;)
+asetup &quot;$ATLAS_RELEASE&quot;
+python - &lt;&lt;&#39;PY&#39;
+from pathlib import Path
+import os
+import tempfile
+import ROOT
+from dataset_status import load_campaign, inspect_campaign
+
+campaign = load_campaign(&#39;.&#39;)
+outputs, failures = inspect_campaign(campaign)
+if failures:
+    raise RuntimeError(&#39;Dataset incomplete; do not merge&#39;)
+target = Path(&#39;merged.root&#39;)
+if target.exists():
+    raise RuntimeError(&#39;merged.root already exists; preserve the previous merge&#39;)
+with tempfile.TemporaryDirectory(prefix=&#39;.merge-&#39;, dir=&#39;.&#39;) as directory:
+    temporary = Path(directory) / &#39;merged.root&#39;
+    merger = ROOT.TFileMerger()
+    if not merger.OutputFile(str(temporary), &#39;RECREATE&#39;):
+        raise RuntimeError(&#39;Cannot create merge output&#39;)
+    for output in outputs:
+        if not merger.AddFile(str(output)):
+            raise RuntimeError(f&#39;Cannot add {output}&#39;)
+    if not merger.Merge():
+        raise RuntimeError(&#39;Merge failed&#39;)
+    del merger
+    check = ROOT.TFile.Open(str(temporary), &#39;READ&#39;)
+    if not check or check.IsZombie() or not check.Get(&#39;example&#39;):
+        raise RuntimeError(&#39;Merged histogram is missing or unreadable&#39;)
+    check.Close()
+    os.link(temporary, target)  # Atomic publication; refuses an existing target.
+print(&#39;Merged&#39;, len(outputs), &#39;validated inputs into&#39;, target)
+PY</code></pre>
+<p>This merges the example's histogram outputs, <strong>not the original xAOD/DAOD files</strong>. Use your analysis framework's merge and metadata checks for other output formats. Preserve <code>manifest.json</code>, configuration, code, receipts, and job IDs alongside the final result. Move durable results to your <code>/project/${USER_PI}/${USER}</code> area according to Unity storage policy.</p>
+<p>When all queued/running tasks and retries have finished, destroy the campaign's shared proxy from an EL9 session with <code>lsetup rucio</code>:</p>
+<pre class="bash"><code>PROXY_REL=&quot;.globus/unity-atlas-proxies/$(basename &quot;$PWD&quot;)/x509up&quot;
+voms-proxy-destroy -file &quot;$HOME/$PROXY_REL&quot;</code></pre>
+<p>Keep the Rucio rule alive through processing and recovery. In an authenticated Rucio session, reload its ID with <code>RULE_ID=$(cat rule-id.txt)</code>. If you own it and need more time, use <code>rucio rule update --lifetime 1209600 "$RULE_ID"</code> (legacy: <code>rucio update-rule --lifetime 1209600 "$RULE_ID"</code>), subject to policy. Do not delete rules owned by someone else or remove replicas directly from dCache.</p>
+<h2 id="your-analysis">9. Adapt the example to your analysis</h2>
+<p>Replace the histogram computation in <code>analyse-file.py</code> before freezing a new campaign. The selected input is <code>campaign.manifest['files'][index]['url']</code>; pass that URL to ROOT, uproot, or your ATLAS analysis executable. Keep the following behavior:</p>
+<ul>
+<li>A read failure produces a nonzero exit; never silently skip a file.</li>
+<li>Output is written into the supplied temporary <code>staging</code> directory and validated before publication.</li>
+<li>The receipt identifies the input and exact configuration/code, and records a meaningful completeness check for your analysis. After event selections, distinguish events processed from events selected.</li>
+<li>Any extra scripts, configuration, or compiled-build identity are included in <code>campaign.sha256</code> and the receipt's provenance checks. The example's <code>INPUTS</code> list is in <code>dataset_status.py</code>.</li>
+</ul>
+<p>The starting granularity is one file per task. If files are tiny compared with container/release startup time, group several files into a task in a later version and record/check every member. If one file exceeds the credential or wall-time budget, use explicit nonoverlapping event ranges and validate total coverage. Keep these partitions fixed for retries.</p>
+<p>Direct XRootD reads avoid a second full copy in Unity storage. If measurements show that repeated scans benefit from staging, download into job-local scratch, verify the catalogue checksum, and account for local capacity and cleanup. Keep dataset discovery out of each worker: catalogue queries are done once when preparing the manifest.</p>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Symptom</th>
+<th>What to check</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Rucio rejects the rule</td>
+<td>Exact RSE name, account quota, write permission, and site approval policy.</td>
+</tr>
+<tr class="even">
+<td>Rule remains replicating or stuck</td>
+<td>Inspect the rule and transfer errors; do not start from an incomplete URL list.</td>
+</tr>
+<tr class="odd">
+<td>Manifest creation fails</td>
+<td>Closed DATASET rather than container, all files available, direct ROOT protocol, and readable RSE status. Existing manifests are never replaced.</td>
+</tr>
+<tr class="even">
+<td>Worker cannot find the proxy</td>
+<td>Copy it into private shared home and pass the relative path; the interactive <code>/tmp</code> filename is not shared.</td>
+</tr>
+<tr class="odd">
+<td>Proxy expires too soon</td>
+<td>Renew and atomically republish the shared source, then retry; running tasks keep their original snapshot.</td>
+</tr>
+<tr class="even">
+<td><code>campaign.sha256</code> fails</td>
+<td>A frozen input changed or is missing. Restore it or create a new campaign rather than mixing versions.</td>
+</tr>
+<tr class="odd">
+<td>ROOT branch/type error</td>
+<td>Inspect the actual DAOD schema and use a supported numeric branch and compatible release.</td>
+</tr>
+<tr class="even">
+<td>Some tasks time out or run out of memory</td>
+<td>Use their logs and accounting to adjust resources; do not mark them successful.</td>
+</tr>
+<tr class="odd">
+<td>Existing published result is invalid</td>
+<td>Stop its tasks, preserve the directory in quarantine, investigate, then retry.</td>
+</tr>
+<tr class="even">
+<td>Array rejected</td>
+<td>Check index/task/submission limits; use bounded windows with explicit offsets.</td>
+</tr>
+<tr class="odd">
+<td>All jobs completed, but the status tool reports missing inputs</td>
+<td>Check failed/retried tasks and manifest indices; do not merge until complete.</td>
+</tr>
+</tbody>
+</table>
+<p>If an instruction does not work, <a href="https://github.com/rafaellopesdesa/unity_atlas/issues">open an issue</a> with the command, error, client/release versions, node hostname, and relevant task or rule ID. Omit proxy contents, private keys, and tokens.</p>
+<h2 id="references">References</h2>
+<ul>
+<li>Rucio: <a href="https://rucio.github.io/documentation/started/concepts/replica_management/">replication rules</a>, <a href="https://rucio.github.io/documentation/started/concepts/replication_rules_examples/">current CLI examples</a>, <a href="https://rucio.github.io/documentation/html/client_api/didclient.html">DID client</a>, and <a href="https://rucio.github.io/documentation/html/client_api/replicaclient.html">replica client</a>.</li>
+<li>Rucio CLI definitions: <a href="https://github.com/rucio/rucio/blob/master/lib/rucio/cli/rule.py">rules</a> and <a href="https://github.com/rucio/rucio/blob/master/lib/rucio/cli/replica.py">replicas</a>.</li>
+<li>Unity: <a href="https://docs.unity.rc.umass.edu/documentation/jobs/sbatch/">batch jobs</a> and <a href="https://docs.unity.rc.umass.edu/documentation/cluster_specs/storage/">storage</a>.</li>
+<li>Slurm: <a href="https://slurm.schedmd.com/job_array.html">job arrays</a> and <a href="https://slurm.schedmd.com/sbatch.html">sbatch</a>.</li>
+<li>ROOT: <a href="https://root.cern.ch/doc/master/classROOT_1_1RDataFrame.html">RDataFrame</a> and <a href="https://root.cern.ch/doc/master/classTFileMerger.html">TFileMerger</a>.</li>
+</ul>
+<p><strong>Next:</strong> <a href="../using-pixi/">Using Pixi</a> covers personal tools and project package environments.</p>
+</article>
+    <footer><span>ATLAS Analysis on Unity</span><a href="https://github.com/rafaellopesdesa/unity_atlas/blob/main/docs/running-on-datasets.md">View page source ↗</a></footer>
+  </main>
+  <aside class="toc" aria-label="On this page"><p class="nav-label">On this page</p><nav><a href="#workflow">1. Choose a reproducible unit of work</a><a href="#prepare">2. Prepare a campaign directory</a><a href="#replicate">3. Request and retain the NET2 replica</a><a href="#manifest">4. Freeze a complete input manifest</a><a href="#worker-proxy">5. Make the proxy available to workers</a><a href="#configure">6. Configure and freeze the analysis</a><a href="#submit">7. Run one task, then scale out</a><a href="#results">8. Check completeness, retry, and merge</a><a href="#your-analysis">9. Adapt the example to your analysis</a><a href="#troubleshooting">Troubleshooting</a><a href="#references">References</a></nav><a class="back-top" href="#main">Back to top ↑</a></aside>
+</div>
+</body>
+</html>

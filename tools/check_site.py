@@ -115,4 +115,10 @@ for example in (ROOT / "examples/codex").glob("*.toml"):
     tomllib.loads(content)
     assert content.strip() in [block.strip() for _, block in codex_page.typed_blocks], \
         f"Displayed example differs from download: {example.name}"
+# Dataset helpers are linked downloads: check syntax without accessing the grid.
+for example in (ROOT / "examples/datasets").iterdir():
+    if example.suffix in (".sh", ".sbatch"):
+        subprocess.run(["bash", "-n", str(example)], check=True)
+    elif example.suffix == ".py":
+        ast.parse(example.read_text(), filename=str(example))
 print(f"Checked {len(pages)} pages, {links} local links, and {blocks} Bash blocks.")

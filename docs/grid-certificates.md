@@ -166,7 +166,7 @@ export RUCIO_AUTH_TYPE=x509_proxy
 
 Your Rucio account may differ from Unity's `$USER`. These exports select an existing account; they do not create or register it. Compatible XRootD clients use the same `X509_USER_PROXY` path. The Codex MCP launcher forwards that path to its clients, which have their own authentication configuration.
 
-Keep the proxy readable by the process that needs it. A new node or container may have a different `/tmp`, and a new terminal does not automatically inherit your exports. Recreate the proxy in the session where you will use it if the existing file is unavailable. In a Slurm job, a proxy made on another node is not automatically accessible merely because its filename is exported.
+Keep the proxy readable by the process that needs it. A new node or container may have a different `/tmp`, and a new terminal does not automatically inherit your exports. Recreate the proxy in the session where you will use it if the existing file is unavailable. In a Slurm job, a proxy made on another node is not automatically accessible merely because its filename is exported. [Running on datasets with Slurm](../running-on-datasets/#worker-proxy) shows how to publish a private shared copy and validate a separate proxy on each worker.
 
 Do not put a temporary proxy path or automatic proxy creation into `.bashrc`. Keep session credentials separate from the persistent directory and software shortcuts. Proxy creation establishes your identity and ATLAS attributes; an individual service still applies its account and resource permissions.
 
