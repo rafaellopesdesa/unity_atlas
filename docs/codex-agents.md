@@ -159,9 +159,11 @@ Perform authentication yourself in the terminal **before starting Codex**. The M
 
 Have your existing ATLAS-registered grid certificate and encrypted private key available as `~/.globus/usercert.pem` and `~/.globus/userkey.pem` **inside this container**, with restrictive permissions on the key. If these are not already on Unity, transfer your existing files through your normal SSH/file-transfer workflow. If you do not yet have a grid certificate, follow the ATLAS instructions for [obtaining a certificate](https://atlas-software.docs.cern.ch/analysis/analysis_tutorial/basicSetup/grid_cert/) and [installing and registering it](https://atlas-software.docs.cern.ch/analysis/analysis_tutorial/basicSetup/grid_setup/) first; the commands below do not issue or register a certificate.
 
+Check the paths **inside EL9**; the container may expose your home at a different path than the Ubuntu host. The proxy commands below pass the certificate and key paths explicitly with `-cert` and `-key`. If your files have different names or locations, substitute their paths as visible inside the container in each command, including renewal.
+
 ```bash
-test -r "$HOME/.globus/usercert.pem"
-test -r "$HOME/.globus/userkey.pem"
+printf 'HOME=%s\n' "$HOME"
+ls -l "$HOME/.globus/usercert.pem" "$HOME/.globus/userkey.pem"
 chmod 700 "$HOME/.globus"
 chmod 600 "$HOME/.globus/userkey.pem"
 ```
@@ -176,6 +178,8 @@ export RUCIO_ACCOUNT=YOUR_RUCIO_ACCOUNT
 MCP_DIR="$HOME/.local/share/unity-atlas-mcp"
 
 "$MCP_DIR/atlas-mcp-env.sh" voms-proxy-init -voms atlas -valid 12:00 \
+  -cert "$HOME/.globus/usercert.pem" \
+  -key "$HOME/.globus/userkey.pem" \
   -out "$X509_USER_PROXY"
 "$MCP_DIR/atlas-mcp-env.sh" voms-proxy-info \
   -file "$X509_USER_PROXY" -timeleft
@@ -312,6 +316,8 @@ If the proxy expires, leave Codex and renew it **in the same terminal, at the sa
 
 ```bash
 "$MCP_DIR/atlas-mcp-env.sh" voms-proxy-init -voms atlas -valid 12:00 \
+  -cert "$HOME/.globus/usercert.pem" \
+  -key "$HOME/.globus/userkey.pem" \
   -out "$X509_USER_PROXY"
 "$MCP_DIR/atlas-mcp-env.sh" voms-proxy-info -file "$X509_USER_PROXY" -timeleft
 codex resume --last
@@ -347,6 +353,8 @@ export ATLAS_PROXY_DIR="$(mktemp -d /tmp/atlas-proxy.XXXXXXXX)"
 export X509_USER_PROXY="$ATLAS_PROXY_DIR/x509up"
 export RUCIO_ACCOUNT=YOUR_RUCIO_ACCOUNT
 "$MCP_DIR/atlas-mcp-env.sh" voms-proxy-init -voms atlas -valid 12:00 \
+  -cert "$HOME/.globus/usercert.pem" \
+  -key "$HOME/.globus/userkey.pem" \
   -out "$X509_USER_PROXY"
 "$MCP_DIR/atlas-mcp-env.sh" voms-proxy-info -file "$X509_USER_PROXY" -timeleft
 read -r -p 'ATLAS project,version: ' ATLAS_RELEASE
@@ -378,7 +386,8 @@ Installation, MCP registration, and Codex login normally persist. The allocation
 | ROOT works in your shell but fails in Codex | Start Codex after `asetup`; check non-login shell settings and inherited Python/library paths. Do not activate the MCP environment in the analysis shell. |
 | Pixi cannot resolve/install | Confirm x86_64/EL9, package-source connectivity, quota, and the downloaded manifest. Preserve the error; do not solve it by installing into the ATLAS release. |
 | MCP initialization fails | Check the absolute executable path, executable permission, installed lock file, forwarded proxy/account variables, and `/mcp` error details. No startup banner may be printed to stdout by the launcher. |
-| VOMS reports no certificate/key or a bad passphrase | Check the files visible inside EL9, key permissions, certificate expiry, ATLAS registration, and the grid-key passphrase. |
+| VOMS reports `No credentials found!` | Check `HOME` and the certificate/key filenames inside EL9. Pass their readable paths explicitly with `-cert` and `-key`, as in [Prepare a personal grid proxy](#grid-auth). A `.globus` directory in your current working directory is not necessarily `$HOME/.globus`. If the error persists, inspect any preceding credential-loading error. |
+| VOMS cannot load the key or reports a bad passphrase | Check key permissions, file format, and the grid-key passphrase. For later authentication failures, also check certificate expiry and ATLAS registration. |
 | Rucio reports a wrong/unknown account | Use the Rucio account associated with your grid identity, not automatically your Unity username. |
 | Proxy renewed but calls still fail | Check remaining lifetime and restart Codex so both stdio clients are recreated. A new node/container needs a newly accessible proxy path. |
 | TLS validation reports expired CRLs | Refresh the writable Pixi CA bundle using the command below, then retry. Do not disable TLS verification. |
